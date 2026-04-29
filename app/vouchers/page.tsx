@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Ticket, DollarSign, Loader2, CheckCircle } from "lucide-react"
+import { Ticket, DollarSign, Loader2, CheckCircle, Search } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import Sidebar from "@/components/Sidebar"
@@ -34,6 +34,7 @@ export default function VouchersPage() {
     totalVouchers: 0,
     totalAmount: 0,
   })
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     checkAuth()
@@ -214,21 +215,55 @@ export default function VouchersPage() {
             </div>
           </div>
 
+          {/* Search */}
+          <div className="mb-6">
+            <div className="relative w-full md:max-w-md">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by student, school, or voucher code..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
           {/* Vouchers List */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <h2 className="text-xl font-bold text-gray-900 mb-6">All Vouchers</h2>
             
-            {vouchers.length === 0 ? (
+            {vouchers.filter(v => {
+              if (!searchQuery) return true;
+              const q = searchQuery.toLowerCase();
+              return (
+                v.student_name?.toLowerCase().includes(q) ||
+                v.school_name?.toLowerCase().includes(q) ||
+                v.voucher_code?.toLowerCase().includes(q) ||
+                v.program_type?.toLowerCase().includes(q)
+              );
+            }).length === 0 ? (
               <div className="text-center py-12">
                 <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">No vouchers issued yet</p>
+                <p className="text-gray-500 text-lg">No vouchers found</p>
                 <p className="text-gray-400 text-sm mt-2">
-                  Vouchers will appear here once applications are approved with voucher amounts
+                  Try adjusting your search terms
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {vouchers.map((voucher) => (
+                {vouchers.filter(v => {
+                  if (!searchQuery) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    v.student_name?.toLowerCase().includes(q) ||
+                    v.school_name?.toLowerCase().includes(q) ||
+                    v.voucher_code?.toLowerCase().includes(q) ||
+                    v.program_type?.toLowerCase().includes(q)
+                  );
+                }).map((voucher) => (
                   <VoucherCard key={voucher.id} voucher={voucher} />
                 ))}
               </div>

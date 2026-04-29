@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import PhoneInput from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -117,7 +119,12 @@ export default function ApplyPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    if (name === "phone") {
+      const sanitizedPhone = value.replace(/[^\d\s\-\+\(\)]/g, "")
+      setFormData((prev) => ({ ...prev, [name]: sanitizedPhone }))
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleSelectChange = (name: string, value: string) => {
@@ -127,6 +134,38 @@ export default function ApplyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+
+    if (!formData.studentName.trim() || !formData.schoolName.trim() || !formData.programType) {
+      toast.error("Please fill in all required fields.")
+      setIsSubmitting(false)
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!emailRegex.test(formData.email)) {
+      toast.error("Please provide a valid email address.")
+      setIsSubmitting(false)
+      return
+    }
+
+    if (formData.phone) {
+      // react-phone-number-input handles validation internally, but we can do a simple length check
+      if (formData.phone.length < 10) {
+        toast.error("Please enter a valid phone number")
+        setIsSubmitting(false)
+        return
+      }
+    }
+
+    if (formData.voucherAmount) {
+      const amount = parseFloat(formData.voucherAmount)
+      if (isNaN(amount) || amount <= 0) {
+        toast.error("Voucher amount must be a positive number.")
+        setIsSubmitting(false)
+        return
+      }
+    }
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -356,15 +395,14 @@ export default function ApplyPage() {
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
+                    <div className="space-y-2 phone-input-wrapper">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        type="tel"
+                      <PhoneInput
+                        international
+                        defaultCountry="US"
                         value={formData.phone}
-                        onChange={handleChange}
-                        placeholder="(555) 123-4567"
+                        onChange={(value) => setFormData((prev) => ({ ...prev, phone: value || "" }))}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                       />
                     </div>
 
@@ -412,8 +450,6 @@ export default function ApplyPage() {
                         value={formData.district}
                         onChange={handleChange}
                         placeholder="Enter district name"
-                        readOnly
-                        className="bg-gray-100"
                       />
                     </div>
                   </div>

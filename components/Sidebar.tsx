@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, X, Ticket, School, FileText, Building2, CreditCard } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, X, Ticket, School, FileText, Building2, CreditCard, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
@@ -89,21 +89,39 @@ export default function Sidebar() {
       label: "Dashboard",
       icon: LayoutDashboard,
     },
-    {
-      path: "/vendor?tab=profile",
-      label: "Profile & Payment",
-      icon: CreditCard,
-    },
   ];
 
-  // Default to admin navigation items while role is loading to prevent flash
+  // Guess navigation items from pathname while role is loading to prevent flash
   const getNavigationItems = () => {
-    if (userRole === "admin" || userRole === null) return adminNavigationItems;
+    if (userRole === "admin") return adminNavigationItems;
     if (userRole === "vendor") return vendorNavigationItems;
-    return schoolNavigationItems;
+    if (userRole === "school") return schoolNavigationItems;
+    
+    // Fallback to pathname if userRole is null
+    if (pathname?.startsWith("/school-dashboard") || pathname?.startsWith("/apply") || pathname?.startsWith("/my-applications")) {
+      return schoolNavigationItems;
+    }
+    if (pathname?.startsWith("/vendor")) {
+      return vendorNavigationItems;
+    }
+    return adminNavigationItems;
   };
 
   const navigationItems = getNavigationItems();
+
+  const getDashboardTitle = () => {
+    if (userRole === "admin") return "Admin Dashboard";
+    if (userRole === "vendor") return "Vendor Portal";
+    if (userRole === "school") return "School Portal";
+
+    if (pathname?.startsWith("/school-dashboard") || pathname?.startsWith("/apply") || pathname?.startsWith("/my-applications")) {
+      return "School Portal";
+    }
+    if (pathname?.startsWith("/vendor")) {
+      return "Vendor Portal";
+    }
+    return "Admin Dashboard";
+  };
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -136,11 +154,7 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">
             <h1 className="text-2xl font-bold text-gray-900">
-              {userRole === null || userRole === "admin"
-                ? "Admin Dashboard"
-                : userRole === "vendor"
-                  ? "Vendor Portal"
-                  : "School Portal"}
+              {getDashboardTitle()}
             </h1>
             <p className="text-xs text-gray-500 mt-1">Global Bright Futures</p>
           </div>

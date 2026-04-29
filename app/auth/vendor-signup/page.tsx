@@ -50,6 +50,22 @@ export default function VendorSignupPage() {
       return
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address")
+      setLoading(false)
+      return
+    }
+
+    if (formData.contactPhone) {
+      const phoneRegex = /^[\d\s\-\+\(\)]{10,}$/
+      if (!phoneRegex.test(formData.contactPhone)) {
+        setError("Please enter a valid phone number (at least 10 digits)")
+        setLoading(false)
+        return
+      }
+    }
+
     try {
       // First, create the auth user
       // Note: Email confirmation is required by default in Supabase
@@ -111,7 +127,6 @@ export default function VendorSignupPage() {
             bank_code: formData.bankCode || null,
             payment_notes: formData.paymentNotes || null,
             status: "submitted",
-            risk_flag: false,
           },
         ])
 

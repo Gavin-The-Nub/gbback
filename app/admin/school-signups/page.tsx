@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
-import { Loader2, CheckCircle, XCircle, School, Mail, Phone, MapPin, Clock } from "lucide-react"
+import { Loader2, CheckCircle, XCircle, School, Mail, Phone, MapPin, Clock, Search } from "lucide-react"
 
 type SchoolSignup = {
   id: string
@@ -33,6 +33,7 @@ export default function SchoolSignupsPage() {
   const [signups, setSignups] = useState<SchoolSignup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     checkAuth()
@@ -208,10 +209,21 @@ export default function SchoolSignupsPage() {
     )
   }
 
-  const pendingSignups = signups.filter(s => s.status === "pending")
-  const approvedSignups = signups.filter(s => s.status === "approved")
-  const rejectedSignups = signups.filter(s => s.status === "rejected")
-  const waitlistedSignups = signups.filter(s => s.status === "waitlisted")
+  const filteredSignups = signups.filter(s => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      s.school_name?.toLowerCase().includes(q) ||
+      s.email?.toLowerCase().includes(q) ||
+      s.contact_name?.toLowerCase().includes(q) ||
+      s.school_district?.toLowerCase().includes(q)
+    );
+  });
+
+  const pendingSignups = filteredSignups.filter(s => s.status === "pending")
+  const approvedSignups = filteredSignups.filter(s => s.status === "approved")
+  const rejectedSignups = filteredSignups.filter(s => s.status === "rejected")
+  const waitlistedSignups = filteredSignups.filter(s => s.status === "waitlisted")
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -226,7 +238,11 @@ export default function SchoolSignupsPage() {
             <p className="text-gray-600">Review and approve school registration requests</p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-4 mb-8">
+          <div className="grid gap-4 md:grid-cols-5 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="text-2xl font-bold text-indigo-600">{signups.length}</div>
+              <div className="text-sm text-gray-600">Total Signups</div>
+            </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="text-2xl font-bold text-gray-900">{pendingSignups.length}</div>
               <div className="text-sm text-gray-600">Pending</div>
@@ -243,6 +259,19 @@ export default function SchoolSignupsPage() {
               <div className="text-2xl font-bold text-red-600">{rejectedSignups.length}</div>
               <div className="text-sm text-gray-600">Rejected</div>
             </div>
+          </div>
+
+          <div className="mb-6 relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by school name, email, contact, or district..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">

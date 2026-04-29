@@ -8,7 +8,7 @@ import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle, XCircle, Clock, FileText, DollarSign, Calendar, User, School, Mail, Phone, MapPin, Ticket, Users } from "lucide-react"
+import { Loader2, CheckCircle, XCircle, Clock, FileText, DollarSign, Calendar, User, School, Mail, Phone, MapPin, Ticket, Users, Filter } from "lucide-react"
 
 type ScholarshipApplication = {
   id: string
@@ -36,6 +36,7 @@ export default function MyApplicationsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [applications, setApplications] = useState<ScholarshipApplication[]>([])
   const [schoolProfile, setSchoolProfile] = useState<any>(null)
+  const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
     let mounted = true
@@ -240,8 +241,30 @@ export default function MyApplicationsPage() {
               </Card>
             </div>
 
+            {/* Filter */}
+            <div className="mb-6 flex justify-end">
+              <div className="relative w-full sm:w-48">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Filter className="h-4 w-4 text-gray-400" />
+                </div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+
             {/* Applications List */}
-            {applications.length === 0 ? (
+            {applications.filter(app => {
+              if (statusFilter !== "all" && app.status !== statusFilter) return false;
+              return true;
+            }).length === 0 ? (
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-center py-12">
@@ -261,7 +284,10 @@ export default function MyApplicationsPage() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {applications.map((application) => (
+                {applications.filter(app => {
+                  if (statusFilter !== "all" && app.status !== statusFilter) return false;
+                  return true;
+                }).map((application) => (
                   <Card key={application.id} className="hover:shadow-md transition-shadow">
                     <CardHeader>
                       <div className="flex items-start justify-between">

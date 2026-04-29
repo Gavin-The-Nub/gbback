@@ -28,7 +28,6 @@ All fields are stored in both `vendor_signups` and `vendor_profiles`:
 - **Email** - Contact email (also in auth.users)
 - **Phone** - Contact phone number
 - **Status** - Current status (submitted/under_review/approved/active/suspended)
-- **Risk Flag** - Boolean flag for risk assessment (yes/no)
 - **Notes** - Internal notes for admins
 
 ## Signup Flow
@@ -39,7 +38,7 @@ All fields are stored in both `vendor_signups` and `vendor_profiles`:
 4. **Approval/Rejection**: Admin can:
    - Mark as "Under Review"
    - Approve (creates vendor_profiles, sets status to "active")
-   - Suspend (requires reason, sets risk flag if needed)
+   - Suspend (requires reason)
 5. **Active Vendor**: Once approved, vendor can log in and access vendor dashboard
 
 ## Admin Actions
@@ -50,10 +49,7 @@ All fields are stored in both `vendor_signups` and `vendor_profiles`:
 - **Approved/Active** → **Suspended**: Suspend vendor (requires reason)
 - **Suspended** → **Active**: Reactivate vendor
 
-### Risk Flag
-- Can be set/unset at any time
-- Visible in the admin interface
-- Used for internal risk assessment
+
 
 ## Access Control
 
@@ -84,6 +80,6 @@ The vendor system is integrated with:
 ## Notes
 
 - Vendor signups require admin approval (same as schools)
-- Risk flags can be set for internal monitoring
+
 - Status workflow: submitted → under_review → approved/active
 - Suspended vendors are blocked from logging in

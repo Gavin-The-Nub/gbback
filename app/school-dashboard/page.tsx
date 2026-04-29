@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
-import { Ticket, DollarSign, Loader2, Plus, Package, AlertCircle, CheckCircle, XCircle, User, Clock, Info } from "lucide-react"
+import { Ticket, DollarSign, Loader2, Plus, AlertCircle, CheckCircle, XCircle, User, Clock, Info, Search } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -25,23 +25,17 @@ type Voucher = {
   used_at: string | null
 }
 
-type Vendor = {
-  id: string
-  vendor_name: string
-  vendor_type: string
-  country: string
-  contact_name: string
-  contact_phone: string | null
-  status: string
-}
+
 
 export default function SchoolDashboard() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [vouchers, setVouchers] = useState<Voucher[]>([])
-  const [vendors, setVendors] = useState<Vendor[]>([])
+
   const [schoolProfile, setSchoolProfile] = useState<any>(null)
   const [signupStatus, setSignupStatus] = useState<any>(null)
+  const [voucherSearch, setVoucherSearch] = useState("")
+
 
   const loadVouchers = useCallback(async (schoolId: string) => {
     try {
@@ -59,21 +53,7 @@ export default function SchoolDashboard() {
     }
   }, [])
 
-  const loadVendors = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("vendor_profiles")
-        .select("id, vendor_name, vendor_type, country, contact_name, contact_phone, status")
-        .eq("status", "active")
-        .order("vendor_name", { ascending: true })
 
-      if (error) throw error
-      setVendors(data || [])
-    } catch (error: any) {
-      console.error("Error loading vendors:", error)
-      toast.error("Failed to load vendors")
-    }
-  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -256,10 +236,7 @@ export default function SchoolDashboard() {
         if (!mounted) return
         setSignupStatus(signupData)
         
-        await Promise.all([
-          loadVouchers(user.id),
-          loadVendors(),
-        ])
+        await loadVouchers(user.id)
       } catch (error: any) {
         console.error("Error checking auth:", error)
         toast.error("Failed to load dashboard")
@@ -299,7 +276,7 @@ export default function SchoolDashboard() {
       mounted = false
       vouchersChannel.unsubscribe()
     }
-  }, [loadVouchers, loadVendors, router])
+  }, [loadVouchers, router])
 
   if (isLoading) {
     return (
@@ -329,7 +306,7 @@ export default function SchoolDashboard() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               School Dashboard
             </h1>
-            <p className="text-gray-600">Manage your vouchers and view available vendors</p>
+            <p className="text-gray-600">Manage your vouchers</p>
           </div>
 
           {/* Account Status Section */}
@@ -444,36 +421,65 @@ export default function SchoolDashboard() {
                     </div>
                   </div>
                 )}
+                {signupStatus?.status === "rejected" && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-900">Account Rejected</p>
+                        <p className="text-sm text-red-700 mt-1">
+                          Your school registration has been rejected. Please contact the administrator for more information.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Stats Overview */}
-          <div className="grid gap-4 md:grid-cols-2 mb-8">
+          <div className="grid gap-4 md:grid-cols-1 mb-8">
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-green-600">{approvedVouchers.length}</div>
                 <div className="text-sm text-gray-600">Active Vouchers</div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-indigo-600">{vendors.length}</div>
-                <div className="text-sm text-gray-600">Available Vendors</div>
-              </CardContent>
-            </Card>
           </div>
 
-{/* Vouchers List */}
+          {/* Vouchers List */}
           {vouchers.length > 0 && (
             <Card className="mb-8">
               <CardHeader>
-                <CardTitle>My Vouchers</CardTitle>
-                <CardDescription>Your approved voucher codes</CardDescription>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle>My Vouchers</CardTitle>
+                    <CardDescription>Your approved voucher codes</CardDescription>
+                  </div>
+                  <div className="relative w-full md:w-64">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search vouchers..."
+                      className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                      value={voucherSearch}
+                      onChange={(e) => setVoucherSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {vouchers.map((voucher) => (
+                  {vouchers.filter(v => {
+                    if (!voucherSearch) return true;
+                    const q = voucherSearch.toLowerCase();
+                    return (
+                      v.voucher_code?.toLowerCase().includes(q) ||
+                      v.purpose?.toLowerCase().includes(q)
+                    );
+                  }).map((voucher) => (
                     <div
                       key={voucher.id}
                       className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
@@ -513,49 +519,7 @@ export default function SchoolDashboard() {
             </Card>
           )}
 
-          {/* Available Vendors */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-indigo-600" />
-                Available Vendors
-              </CardTitle>
-              <CardDescription>Browse vendors you can use your vouchers with</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {vendors.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No vendors available at the moment</p>
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {vendors.map((vendor) => (
-                    <div
-                      key={vendor.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
-                    >
-                      <h3 className="font-semibold text-lg text-gray-900 mb-2">{vendor.vendor_name}</h3>
-                      <p className="text-sm text-gray-600 mb-1">
-                        <span className="font-medium">Type:</span> {vendor.vendor_type}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-1">
-                        <span className="font-medium">Country:</span> {vendor.country}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-1">
-                        <span className="font-medium">Contact:</span> {vendor.contact_name}
-                      </p>
-                      {vendor.contact_phone && (
-                        <p className="text-sm text-gray-600">
-                          <span className="font-medium">Phone:</span> {vendor.contact_phone}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+
         </main>
       </div>
     </div>

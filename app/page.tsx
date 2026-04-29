@@ -407,21 +407,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Donations Stats */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Donations Overview</h2>
-            <p className="text-sm text-gray-600 mb-4">Total donations received</p>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Total Donations</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalDonations}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Amount</p>
-                <p className="text-2xl font-bold text-gray-900">${stats.totalDonationAmount.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
+
           
         </main>
       </div>

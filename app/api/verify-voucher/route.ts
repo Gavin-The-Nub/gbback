@@ -65,6 +65,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // NEW: Check if this voucher has already been submitted by a vendor
+    const { data: existingSubmissions, error: submissionError } = await supabaseAdmin
+      .from("vendor_voucher_submissions")
+      .select("id, status, vendor_id")
+      .eq("voucher_code", normalizedCode)
+      .neq("status", "rejected") // Allow re-submitting if previously rejected
+
+    if (submissionError) {
+      console.error("Error checking existing submissions:", submissionError)
+    } else if (existingSubmissions && existingSubmissions.length > 0) {
+      const submission = existingSubmissions[0]
+      const statusText = submission.status === "approved" ? "already redeemed" : "currently pending approval"
+      console.log("API: Voucher already submitted:", submission)
+      return NextResponse.json({
+        valid: false,
+        reason: `This voucher code is ${statusText}`,
+        status: "already_submitted",
+        submission: submission
+      })
+    }
+
     // Find approved application
     const approvedApp = scholarshipApps?.find(app => app.status === "approved") || null
     

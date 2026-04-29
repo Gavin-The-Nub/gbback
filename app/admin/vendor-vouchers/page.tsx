@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
-import { Loader2, CheckCircle, XCircle, Ticket, Package, AlertCircle, CreditCard } from "lucide-react"
+import { Loader2, CheckCircle, XCircle, Ticket, Package, AlertCircle, CreditCard, Search } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 type VendorVoucherSubmission = {
@@ -21,14 +21,11 @@ type VendorVoucherSubmission = {
   reviewed_by: string | null
   review_notes: string | null
   vendor_name?: string
+  vendor_email?: string
   student_name?: string
   school_name?: string
   voucher_amount?: number | null
-  bank_name?: string | null
-  account_name?: string | null
-  account_number?: string | null
-  bank_code?: string | null
-  payment_notes?: string | null
+  invoice_url?: string | null
 }
 
 export default function VendorVouchersPage() {
@@ -37,6 +34,7 @@ export default function VendorVouchersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState<string | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     checkAuth()
@@ -76,44 +74,44 @@ export default function VendorVouchersPage() {
       const transformed = await Promise.all(
         (data || []).map(async (item: any) => {
           let vendorName = "Unknown Vendor"
+          let vendorEmail = "Unknown Email"
           let studentName = null
           let schoolName = null
           let voucherAmount = null
 
-          // Get vendor name and payment details
           if (item.vendor_id) {
-            // First try active vendor profiles
+            // Fetch vendor profile
             const { data: vendorData } = await supabase
               .from("vendor_profiles")
-              .select("vendor_name, bank_name, account_name, account_number, bank_code, payment_notes")
+              .select("vendor_name")
               .eq("id", item.vendor_id)
               .maybeSingle()
 
             if (vendorData) {
               vendorName = vendorData.vendor_name
-              item.bank_name = vendorData.bank_name
-              item.account_name = vendorData.account_name
-              item.account_number = vendorData.account_number
-              item.bank_code = vendorData.bank_code
-              item.payment_notes = vendorData.payment_notes
             } else {
-              // Fallback to vendor signups if profile not found or inaccessible
               const { data: signupData } = await supabase
                 .from("vendor_signups")
-                .select("vendor_name, bank_name, account_name, account_number, bank_code, payment_notes")
+                .select("vendor_name")
                 .eq("user_id", item.vendor_id)
                 .order("created_at", { ascending: false })
                 .limit(1)
                 .maybeSingle()
-
+              
               if (signupData) {
                 vendorName = signupData.vendor_name
-                item.bank_name = signupData.bank_name
-                item.account_name = signupData.account_name
-                item.account_number = signupData.account_number
-                item.bank_code = signupData.bank_code
-                item.payment_notes = signupData.payment_notes
               }
+            }
+
+            // Fetch vendor email
+            const { data: userData } = await supabase
+              .from("user_profiles")
+              .select("email")
+              .eq("id", item.vendor_id)
+              .maybeSingle()
+              
+            if (userData?.email) {
+              vendorEmail = userData.email
             }
           }
 
@@ -134,6 +132,7 @@ export default function VendorVouchersPage() {
           return {
             ...item,
             vendor_name: vendorName,
+            vendor_email: vendorEmail,
             student_name: studentName,
             school_name: schoolName,
             voucher_amount: voucherAmount,
@@ -198,9 +197,17 @@ export default function VendorVouchersPage() {
     )
   }
 
-  const filteredSubmissions = selectedStatus === "all"
-    ? submissions
-    : submissions.filter(s => s.status === selectedStatus)
+  const filteredSubmissions = submissions.filter(s => {
+    if (selectedStatus !== "all" && s.status !== selectedStatus) return false;
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      s.voucher_code?.toLowerCase().includes(q) ||
+      s.vendor_name?.toLowerCase().includes(q) ||
+      s.student_name?.toLowerCase().includes(q) ||
+      s.school_name?.toLowerCase().includes(q)
+    );
+  })
 
   const pendingSubmissions = submissions.filter(s => s.status === "pending")
   const approvedSubmissions = submissions.filter(s => s.status === "approved")
@@ -247,8 +254,20 @@ export default function VendorVouchersPage() {
             </Card>
           </div>
 
-          {/* Filter */}
-          <div className="mb-6">
+          {/* Filter and Search */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1 sm:max-w-md">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by code, vendor, student, or school..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -302,6 +321,7 @@ export default function VendorVouchersPage() {
                           <div>
                             <p className="text-gray-600">Vendor</p>
                             <p className="font-medium text-gray-900">{submission.vendor_name}</p>
+                            <p className="text-sm text-indigo-600 break-all">{submission.vendor_email}</p>
                           </div>
                           <div>
                             <p className="text-gray-600">Submitted</p>
@@ -331,45 +351,18 @@ export default function VendorVouchersPage() {
                           )}
                         </div>
 
-                        {/* Payment Details Section */}
-                        {(submission.bank_name || submission.account_number || submission.payment_notes) && (
-                          <div className="mt-4 pt-4 border-t border-gray-100 bg-blue-50/50 rounded-lg p-3">
-                            <h4 className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-2 flex items-center gap-1">
-                              <CreditCard className="h-3 w-3" />
-                              Vendor Payment Details
-                            </h4>
-                            <div className="grid md:grid-cols-2 gap-3 text-sm">
-                              {submission.bank_name && (
-                                <div>
-                                  <p className="text-gray-500 text-xs">Bank Name</p>
-                                  <p className="font-medium text-gray-900">{submission.bank_name}</p>
-                                </div>
-                              )}
-                              {submission.account_name && (
-                                <div>
-                                  <p className="text-gray-500 text-xs">Account Name</p>
-                                  <p className="font-medium text-gray-900">{submission.account_name}</p>
-                                </div>
-                              )}
-                              {submission.account_number && (
-                                <div>
-                                  <p className="text-gray-500 text-xs">Account Number</p>
-                                  <p className="font-mono font-medium text-gray-900">{submission.account_number}</p>
-                                </div>
-                              )}
-                              {submission.bank_code && (
-                                <div>
-                                  <p className="text-gray-500 text-xs">Bank/Sort Code</p>
-                                  <p className="font-medium text-gray-900">{submission.bank_code}</p>
-                                </div>
-                              )}
-                              {submission.payment_notes && (
-                                <div className="md:col-span-2">
-                                  <p className="text-gray-500 text-xs">Payment Notes</p>
-                                  <p className="text-gray-700 italic">{submission.payment_notes}</p>
-                                </div>
-                              )}
-                            </div>
+                        {/* Invoice Link */}
+                        {submission.invoice_url && (
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <a
+                              href={`https://ommmrstanzxkgnlzqwwx.supabase.co/storage/v1/object/public/vendor-invoices/${submission.invoice_url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-2"
+                            >
+                              <Package className="h-4 w-4" />
+                              View Invoice
+                            </a>
                           </div>
                         )}
 
