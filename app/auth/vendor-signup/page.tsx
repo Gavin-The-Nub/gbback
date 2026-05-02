@@ -75,6 +75,11 @@ export default function VendorSignupPage() {
         password: formData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/login`,
+          data: {
+            role: "vendor",
+            vendor_name: formData.vendorName,
+            contact_name: formData.contactName,
+          },
         },
       })
 
@@ -84,30 +89,7 @@ export default function VendorSignupPage() {
         throw new Error("Failed to create user account")
       }
 
-      // Update user profile role to vendor (profile may already exist from trigger)
-      const { error: profileError } = await supabase
-        .from("user_profiles")
-        .update({
-          role: "vendor",
-          email: formData.email,
-        })
-        .eq("id", authData.user.id)
 
-      // If update fails (profile doesn't exist), try insert
-      if (profileError) {
-        const { error: insertError } = await supabase
-          .from("user_profiles")
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            role: "vendor",
-          })
-
-        if (insertError) {
-          console.error("Profile error:", insertError)
-          throw insertError
-        }
-      }
 
       // Create vendor signup record for admin approval
       const { error: signupError } = await supabase
