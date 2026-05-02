@@ -84,11 +84,6 @@ export default function SignupPage() {
         password: formData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/login`,
-          data: {
-            role: "school",
-            school_name: formData.schoolName,
-            contact_name: formData.contactName,
-          },
         },
       })
 
@@ -119,6 +114,9 @@ export default function SignupPage() {
         ])
 
       if (signupError) {
+        if (signupError.code === "23505") {
+          throw new Error("This email is already registered. If you've already signed up, please wait for admin approval or try logging in.")
+        }
         console.error("Signup record error:", signupError)
         throw signupError
       }
