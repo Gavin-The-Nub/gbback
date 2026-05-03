@@ -114,8 +114,18 @@ export default function SignupPage() {
         ])
 
       if (signupError) {
+        console.error("Full signup error object:", signupError)
         if (signupError.code === "23505") {
           throw new Error("This email is already registered. If you've already signed up, please wait for admin approval or try logging in.")
+        }
+        if (signupError.code === "23503") {
+          console.error("Foreign key violation details:", {
+            userId: authData.user?.id,
+            email: formData.email,
+            code: signupError.code,
+            message: signupError.message
+          })
+          throw new Error("There was an issue linking your registration to your account. Please try again or contact support.")
         }
         console.error("Signup record error:", signupError)
         throw signupError

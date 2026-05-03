@@ -20,11 +20,6 @@ export default function VendorSignupPage() {
     country: "",
     contactName: "",
     contactPhone: "",
-    bankName: "",
-    accountName: "",
-    accountNumber: "",
-    bankCode: "",
-    paymentNotes: "",
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -84,32 +79,20 @@ export default function VendorSignupPage() {
         throw new Error("Failed to create user account")
       }
 
-      // Update user profile role to vendor (profile may already exist from trigger)
+      // 2. Ensure user profile exists with vendor role
       const { error: profileError } = await supabase
         .from("user_profiles")
-        .update({
-          role: "vendor",
+        .upsert({
+          id: authData.user.id,
           email: formData.email,
+          role: "vendor",
         })
-        .eq("id", authData.user.id)
 
-      // If update fails (profile doesn't exist), try insert
       if (profileError) {
-        const { error: insertError } = await supabase
-          .from("user_profiles")
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            role: "vendor",
-          })
-
-        if (insertError) {
-          console.error("Profile error:", insertError)
-          throw insertError
-        }
+        console.error("Profile update error:", profileError)
       }
 
-      // Create vendor signup record for admin approval
+      // 3. Create vendor signup record for admin approval
       const { error: signupError } = await supabase
         .from("vendor_signups")
         .insert([
@@ -121,20 +104,21 @@ export default function VendorSignupPage() {
             country: formData.country,
             contact_name: formData.contactName,
             contact_phone: formData.contactPhone || null,
-            bank_name: formData.bankName || null,
-            account_name: formData.accountName || null,
-            account_number: formData.accountNumber || null,
-            bank_code: formData.bankCode || null,
-            payment_notes: formData.paymentNotes || null,
             status: "submitted",
           },
         ])
 
       if (signupError) {
+        console.error("Vendor signup error details:", signupError)
+        
         if (signupError.code === "23505") {
-          throw new Error("This email is already registered. If you've already signed up, please wait for admin approval or try logging in.")
+          throw new Error("A registration request with this email already exists.")
         }
-        console.error("Signup record error:", signupError)
+        
+        if (signupError.code === "23503") {
+          throw new Error("Account linking error. Please try again or contact support.")
+        }
+        
         throw signupError
       }
 
@@ -321,90 +305,6 @@ export default function VendorSignupPage() {
                   placeholder="Phone number"
                 />
               </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Details (Optional)</h2>
-            <p className="text-sm text-gray-500 mb-4">Providing these now helps us process your payments faster, but you can also add them later.</p>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="bankName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Bank Name
-                </label>
-                <input
-                  id="bankName"
-                  name="bankName"
-                  type="text"
-                  value={formData.bankName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-gray-900"
-                  placeholder="e.g., Standard Chartered"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="accountName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Name
-                </label>
-                <input
-                  id="accountName"
-                  name="accountName"
-                  type="text"
-                  value={formData.accountName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-gray-900"
-                  placeholder="Name on account"
-                />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Number
-                </label>
-                <input
-                  id="accountNumber"
-                  name="accountNumber"
-                  type="text"
-                  value={formData.accountNumber}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-gray-900"
-                  placeholder="Account number"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="bankCode" className="block text-sm font-medium text-gray-700 mb-2">
-                  Bank/Sort Code
-                </label>
-                <input
-                  id="bankCode"
-                  name="bankCode"
-                  type="text"
-                  value={formData.bankCode}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-gray-900"
-                  placeholder="IFSC/Swift/Sort Code"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label htmlFor="paymentNotes" className="block text-sm font-medium text-gray-700 mb-2">
-                Additional Payment Info (e.g., Mobile Money)
-              </label>
-              <input
-                id="paymentNotes"
-                name="paymentNotes"
-                type="text"
-                value={formData.paymentNotes}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-gray-900"
-                placeholder="Any special payment instructions"
-              />
             </div>
           </div>
 
