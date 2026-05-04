@@ -33,6 +33,7 @@ export default function SchoolSignupsPage() {
   const [signups, setSignups] = useState<SchoolSignup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState<string | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
@@ -237,7 +238,18 @@ export default function SchoolSignupsPage() {
     )
   }
 
-  const filteredSignups = signups.filter(s => {
+  const statusCounts = {
+    all: signups.length,
+    pending: signups.filter(s => s.status === "pending").length,
+    approved: signups.filter(s => s.status === "approved").length,
+    waitlisted: signups.filter(s => s.status === "waitlisted").length,
+    rejected: signups.filter(s => s.status === "rejected").length,
+  }
+
+  const filteredSignups = (selectedStatus === "all"
+    ? signups
+    : signups.filter(s => s.status === selectedStatus)
+  ).filter(s => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -247,11 +259,6 @@ export default function SchoolSignupsPage() {
       s.school_district?.toLowerCase().includes(q)
     );
   });
-
-  const pendingSignups = filteredSignups.filter(s => s.status === "pending")
-  const approvedSignups = filteredSignups.filter(s => s.status === "approved")
-  const rejectedSignups = filteredSignups.filter(s => s.status === "rejected")
-  const waitlistedSignups = filteredSignups.filter(s => s.status === "waitlisted")
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -267,24 +274,39 @@ export default function SchoolSignupsPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-5 mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-2xl font-bold text-indigo-600">{signups.length}</div>
+            <div 
+              onClick={() => setSelectedStatus('all')}
+              className={`bg-white rounded-xl shadow-sm border-2 p-6 cursor-pointer transition ${selectedStatus === 'all' ? 'border-indigo-500' : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className="text-2xl font-bold text-indigo-600">{statusCounts.all}</div>
               <div className="text-sm text-gray-600">Total Signups</div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-2xl font-bold text-gray-900">{pendingSignups.length}</div>
+            <div 
+              onClick={() => setSelectedStatus('pending')}
+              className={`bg-white rounded-xl shadow-sm border-2 p-6 cursor-pointer transition ${selectedStatus === 'pending' ? 'border-indigo-500' : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className="text-2xl font-bold text-gray-900">{statusCounts.pending}</div>
               <div className="text-sm text-gray-600">Pending</div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-2xl font-bold text-green-600">{approvedSignups.length}</div>
+            <div 
+              onClick={() => setSelectedStatus('approved')}
+              className={`bg-white rounded-xl shadow-sm border-2 p-6 cursor-pointer transition ${selectedStatus === 'approved' ? 'border-indigo-500' : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className="text-2xl font-bold text-green-600">{statusCounts.approved}</div>
               <div className="text-sm text-gray-600">Approved</div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-2xl font-bold text-orange-600">{waitlistedSignups.length}</div>
+            <div 
+              onClick={() => setSelectedStatus('waitlisted')}
+              className={`bg-white rounded-xl shadow-sm border-2 p-6 cursor-pointer transition ${selectedStatus === 'waitlisted' ? 'border-indigo-500' : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className="text-2xl font-bold text-orange-600">{statusCounts.waitlisted}</div>
               <div className="text-sm text-gray-600">Waitlisted</div>
             </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-2xl font-bold text-red-600">{rejectedSignups.length}</div>
+            <div 
+              onClick={() => setSelectedStatus('rejected')}
+              className={`bg-white rounded-xl shadow-sm border-2 p-6 cursor-pointer transition ${selectedStatus === 'rejected' ? 'border-indigo-500' : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className="text-2xl font-bold text-red-600">{statusCounts.rejected}</div>
               <div className="text-sm text-gray-600">Rejected</div>
             </div>
           </div>
@@ -303,12 +325,14 @@ export default function SchoolSignupsPage() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Pending Approvals</h2>
-            {pendingSignups.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">No pending signups</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">
+              {selectedStatus === "all" ? "All Signups" : `${selectedStatus.toUpperCase()} Signups`}
+            </h2>
+            {filteredSignups.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">No signups found</p>
             ) : (
               <div className="space-y-6">
-                {pendingSignups.map((signup) => (
+                {filteredSignups.map((signup) => (
                   <div key={signup.id} className="border border-gray-200 rounded-lg p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
@@ -318,12 +342,17 @@ export default function SchoolSignupsPage() {
                         </h3>
                         <p className="text-sm text-gray-600 mt-1">{signup.email}</p>
                       </div>
-                      <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                        Pending
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        signup.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                        signup.status === "approved" ? "bg-green-100 text-green-800" :
+                        signup.status === "waitlisted" ? "bg-orange-100 text-orange-800" :
+                        "bg-red-100 text-red-800"
+                      }`}>
+                        {signup.status.toUpperCase()}
                       </span>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-4 text-sm">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                       <div>
                         <p className="text-gray-600">Contact Name</p>
                         <p className="font-medium text-gray-900">{signup.contact_name}</p>
@@ -331,13 +360,19 @@ export default function SchoolSignupsPage() {
                       {signup.contact_phone && (
                         <div>
                           <p className="text-gray-600">Contact Phone</p>
-                          <p className="font-medium text-gray-900">{signup.contact_phone}</p>
+                          <p className="font-medium text-gray-900 flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {signup.contact_phone}
+                          </p>
                         </div>
                       )}
                       {signup.school_address && (
                         <div>
                           <p className="text-gray-600">Address</p>
-                          <p className="font-medium text-gray-900">{signup.school_address}</p>
+                          <p className="font-medium text-gray-900 flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {signup.school_address}
+                          </p>
                         </div>
                       )}
                       {signup.school_district && (
@@ -366,6 +401,12 @@ export default function SchoolSignupsPage() {
                           </a>
                         </div>
                       )}
+                      {signup.review_notes && (
+                        <div className="md:col-span-2 lg:col-span-3 mt-2 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Review Notes</p>
+                          <p className="text-sm text-gray-700">{signup.review_notes}</p>
+                        </div>
+                      )}
                     </div>
 
                     {signup.additional_info && (
@@ -375,231 +416,74 @@ export default function SchoolSignupsPage() {
                       </div>
                     )}
 
-                    <div className="mt-6 flex gap-3">
-                      <button
-                        onClick={() => openModal(signup.id, "approved", "Approve School", "Enter approval notes (optional)...")}
-                        disabled={isUpdating === signup.id}
-                        className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isUpdating === signup.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4" />
-                            Approve
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => openModal(signup.id, "waitlisted", "Waitlist School", "Enter waitlist notes (optional)...")}
-                        disabled={isUpdating === signup.id}
-                        className="flex-1 flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isUpdating === signup.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Clock className="h-4 w-4" />
-                            Waitlist
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
-                        disabled={isUpdating === signup.id}
-                        className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isUpdating === signup.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <XCircle className="h-4 w-4" />
-                            Reject
-                          </>
-                        )}
-                      </button>
+                    <div className="mt-6 flex gap-3 flex-wrap">
+                      {signup.status === "pending" && (
+                        <>
+                          <button
+                            onClick={() => openModal(signup.id, "approved", "Approve School", "Enter approval notes (optional)...")}
+                            disabled={isUpdating === signup.id}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isUpdating === signup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle className="h-4 w-4" /> Approve</>}
+                          </button>
+                          <button
+                            onClick={() => openModal(signup.id, "waitlisted", "Waitlist School", "Enter waitlist notes (optional)...")}
+                            disabled={isUpdating === signup.id}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isUpdating === signup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Clock className="h-4 w-4" /> Waitlist</>}
+                          </button>
+                          <button
+                            onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
+                            disabled={isUpdating === signup.id}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isUpdating === signup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4" /> Reject</>}
+                          </button>
+                        </>
+                      )}
+                      {signup.status === "approved" && (
+                        <button
+                          onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
+                          disabled={isUpdating === signup.id}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {isUpdating === signup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4" /> Reject</>}
+                        </button>
+                      )}
+                      {signup.status === "waitlisted" && (
+                        <>
+                          <button
+                            onClick={() => handleApproval(signup.id, "approved")}
+                            disabled={isUpdating === signup.id}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isUpdating === signup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle className="h-4 w-4" /> Approve</>}
+                          </button>
+                          <button
+                            onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
+                            disabled={isUpdating === signup.id}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isUpdating === signup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><XCircle className="h-4 w-4" /> Reject</>}
+                          </button>
+                        </>
+                      )}
+                      {signup.status === "rejected" && (
+                        <button
+                          onClick={() => openModal(signup.id, "pending", "Move to Review", "Enter notes (optional)...")}
+                          disabled={isUpdating === signup.id}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {isUpdating === signup.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Clock className="h-4 w-4" /> Move to Review</>}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Approved Signups Section */}
-          {approvedSignups.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Approved Signups</h2>
-              <div className="space-y-6">
-                {approvedSignups.map((signup) => (
-                  <div key={signup.id} className="border border-gray-200 rounded-lg p-6 bg-green-50/30">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <School className="h-5 w-5 text-green-600" />
-                          {signup.school_name}
-                        </h3>
-                      </div>
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                        Approved
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
-                        disabled={isUpdating === signup.id}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {isUpdating === signup.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <XCircle className="h-4 w-4" />
-                            Reject
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Waitlisted Signups Section */}
-          {waitlistedSignups.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Waitlisted Signups</h2>
-              <div className="space-y-6">
-                {waitlistedSignups.map((signup) => (
-                  <div key={signup.id} className="border border-gray-200 rounded-lg p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <School className="h-5 w-5 text-indigo-600" />
-                          {signup.school_name}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">{signup.email}</p>
-                      </div>
-                      <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
-                        Waitlisted
-                      </span>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Contact Name</p>
-                        <p className="font-medium text-gray-900">{signup.contact_name}</p>
-                      </div>
-                      {signup.contact_phone && (
-                        <div>
-                          <p className="text-gray-600">Contact Phone</p>
-                          <p className="font-medium text-gray-900">{signup.contact_phone}</p>
-                        </div>
-                      )}
-                      {signup.school_district && (
-                        <div>
-                          <p className="text-gray-600">District</p>
-                          <p className="font-medium text-gray-900">{signup.school_district}</p>
-                        </div>
-                      )}
-                      {signup.review_notes && (
-                        <div className="md:col-span-2">
-                          <p className="text-gray-600">Waitlist Notes</p>
-                          <p className="font-medium text-gray-900">{signup.review_notes}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-6 flex gap-2">
-                      <button
-                        onClick={() => handleApproval(signup.id, "approved")}
-                        disabled={isUpdating === signup.id}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {isUpdating === signup.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <CheckCircle className="h-4 w-4" />
-                            Approve
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
-                        disabled={isUpdating === signup.id}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {isUpdating === signup.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <XCircle className="h-4 w-4" />
-                            Reject
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Rejected Signups Section */}
-          {rejectedSignups.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Rejected Signups</h2>
-              <div className="space-y-6">
-                {rejectedSignups.map((signup) => (
-                  <div key={signup.id} className="border border-gray-200 rounded-lg p-6 bg-red-50/30">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                          <School className="h-5 w-5 text-red-600" />
-                          {signup.school_name}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">{signup.email}</p>
-                      </div>
-                      <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                        Rejected
-                      </span>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Contact Name</p>
-                        <p className="font-medium text-gray-900">{signup.contact_name}</p>
-                      </div>
-                      {signup.review_notes && (
-                        <div className="md:col-span-2">
-                          <p className="text-gray-600">Rejection Reason</p>
-                          <p className="font-medium text-red-900">{signup.review_notes}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-6 flex gap-3">
-                      <button
-                        onClick={() => openModal(signup.id, "pending", "Move to Review", "Enter notes (optional)...")}
-                        disabled={isUpdating === signup.id}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {isUpdating === signup.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Clock className="h-4 w-4" />
-                            Move to Review
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </main>
       </div>
 
