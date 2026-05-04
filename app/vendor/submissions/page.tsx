@@ -169,7 +169,7 @@ export default function VendorDashboard() {
         // Check signup status
         const { data: signupData } = await supabase
           .from("vendor_signups")
-          .select("vendor_name, status")
+          .select("id, user_id, vendor_name, status")
           .eq("user_id", user.id)
           .maybeSingle()
 

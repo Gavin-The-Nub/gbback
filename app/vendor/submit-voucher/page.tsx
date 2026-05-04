@@ -166,7 +166,7 @@ function VendorDashboardContent() {
         // Check signup status
         const { data: signupData } = await supabase
           .from("vendor_signups")
-          .select("vendor_name, status, review_notes")
+          .select("id, user_id, vendor_name, status, review_notes")
           .eq("user_id", user.id)
           .maybeSingle()
 

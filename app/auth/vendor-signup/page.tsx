@@ -70,6 +70,9 @@ export default function VendorSignupPage() {
         password: formData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/login`,
+          data: {
+            role: "vendor",
+          },
         },
       })
 

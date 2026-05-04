@@ -166,11 +166,31 @@ function VendorDashboardContent() {
       // If profile doesn't exist, user is pending approval
       if (!vendorData) {
         // Check signup status
-        const { data: signupData } = await supabase
+        let { data: signupData } = await supabase
           .from("vendor_signups")
-          .select("vendor_name, status, review_notes")
+          .select("id, user_id, vendor_name, status, review_notes, email")
           .eq("user_id", user.id)
           .maybeSingle()
+
+        // Fallback to email for legacy records
+        if (!signupData && user.email) {
+          const { data: emailData } = await supabase
+            .from("vendor_signups")
+            .select("id, user_id, vendor_name, status, review_notes, email")
+            .eq("email", user.email)
+            .maybeSingle()
+          
+          if (emailData) {
+            signupData = emailData
+            // Auto-heal missing user_id
+            if (!emailData.user_id) {
+              await supabase
+                .from("vendor_signups")
+                .update({ user_id: user.id })
+                .eq("id", emailData.id)
+            }
+          }
+        }
 
         if (signupData) {
           setVendorProfile({
@@ -180,6 +200,21 @@ function VendorDashboardContent() {
             isPending: true,
           })
         } else {
+          // No vendor signup found - check if they are actually a school
+          console.log("No vendor signup found - checking if user is actually a school")
+          const { data: schoolSignup } = await supabase
+            .from("school_signups")
+            .select("id")
+            .or(`user_id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ''}`)
+            .maybeSingle()
+
+          if (schoolSignup) {
+            console.log("User is actually a school - updating role and redirecting")
+            await supabase.from("user_profiles").update({ role: "school" }).eq("id", user.id)
+            window.location.href = "/school-dashboard"
+            return
+          }
+
           setVendorProfile({
             vendor_name: "Vendor",
             status: "pending",
@@ -210,6 +245,8 @@ function VendorDashboardContent() {
       setIsLoading(false)
     }
   }
+
+
 
   const loadSubmissions = async (vendorId: string) => {
     try {
@@ -485,9 +522,10 @@ function VendorDashboardContent() {
                     )}
                     
                     {(isCancelled || isWaitlisted) && (
-                      <div className="mt-8">
+                      <div className="mt-8 flex flex-col gap-3 max-w-xs mx-auto">
                         <Button 
                           variant="outline" 
+                          className="w-full"
                           onClick={() => supabase.auth.signOut().then(() => router.push("/auth/login"))}
                         >
                           Sign Out

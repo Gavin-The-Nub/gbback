@@ -77,7 +77,35 @@ export default function SchoolSignupsPage() {
     }
   }
 
-  const handleApproval = async (signupId: string, status: "approved" | "rejected" | "waitlisted", notes?: string) => {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalData, setModalData] = useState<{
+    id: string;
+    status: SchoolSignup["status"];
+    title: string;
+    placeholder: string;
+    required: boolean;
+  } | null>(null)
+  const [modalNotes, setModalNotes] = useState("")
+
+  const openModal = (id: string, status: SchoolSignup["status"], title: string, placeholder: string = "Enter notes (optional)...", required: boolean = false) => {
+    setModalData({ id, status, title, placeholder, required })
+    setModalNotes("")
+    setIsModalOpen(true)
+  }
+
+  const handleModalSubmit = async () => {
+    if (modalData) {
+      if (modalData.required && !modalNotes.trim()) {
+        toast.error("A reason is required for this action")
+        return
+      }
+      setIsModalOpen(false) // Close early but wait for the update
+      await handleApproval(modalData.id, modalData.status, modalNotes)
+      setModalData(null)
+    }
+  }
+
+  const handleApproval = async (signupId: string, status: SchoolSignup["status"], notes?: string) => {
     setIsUpdating(signupId)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -127,7 +155,7 @@ export default function SchoolSignupsPage() {
                 school_type: signup.school_type,
                 student_count: signup.student_count,
                 website: signup.website,
-                country: "USA", // Default country (can be updated later if needed)
+                country: signup.country || "USA", 
               },
             ])
 
@@ -135,11 +163,11 @@ export default function SchoolSignupsPage() {
         }
       }
 
-      toast.success(`School signup ${status} successfully!`)
+      toast.success(`Status updated to ${status}`)
       await loadSignups()
     } catch (error: any) {
-      console.error("Error updating signup:", error)
-      toast.error(error.message || "Failed to update signup")
+      console.error("Error updating status:", error)
+      toast.error(error.message || "Failed to update status")
     } finally {
       setIsUpdating(null)
     }
@@ -349,7 +377,7 @@ export default function SchoolSignupsPage() {
 
                     <div className="mt-6 flex gap-3">
                       <button
-                        onClick={() => handleApproval(signup.id, "approved")}
+                        onClick={() => openModal(signup.id, "approved", "Approve School", "Enter approval notes (optional)...")}
                         disabled={isUpdating === signup.id}
                         className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -363,12 +391,7 @@ export default function SchoolSignupsPage() {
                         )}
                       </button>
                       <button
-                        onClick={() => {
-                          const notes = prompt("Enter waitlist notes (optional):")
-                          if (notes !== null) {
-                            handleApproval(signup.id, "waitlisted", notes)
-                          }
-                        }}
+                        onClick={() => openModal(signup.id, "waitlisted", "Waitlist School", "Enter waitlist notes (optional)...")}
                         disabled={isUpdating === signup.id}
                         className="flex-1 flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -382,12 +405,7 @@ export default function SchoolSignupsPage() {
                         )}
                       </button>
                       <button
-                        onClick={() => {
-                          const notes = prompt("Enter rejection reason (optional):")
-                          if (notes !== null) {
-                            handleApproval(signup.id, "rejected", notes)
-                          }
-                        }}
+                        onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
                         disabled={isUpdating === signup.id}
                         className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -407,9 +425,49 @@ export default function SchoolSignupsPage() {
             )}
           </div>
 
+          {/* Approved Signups Section */}
+          {approvedSignups.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Approved Signups</h2>
+              <div className="space-y-6">
+                {approvedSignups.map((signup) => (
+                  <div key={signup.id} className="border border-gray-200 rounded-lg p-6 bg-green-50/30">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                          <School className="h-5 w-5 text-green-600" />
+                          {signup.school_name}
+                        </h3>
+                      </div>
+                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                        Approved
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
+                        disabled={isUpdating === signup.id}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isUpdating === signup.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <XCircle className="h-4 w-4" />
+                            Reject
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Waitlisted Signups Section */}
           {waitlistedSignups.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Waitlisted Signups</h2>
               <div className="space-y-6">
                 {waitlistedSignups.map((signup) => (
@@ -452,11 +510,11 @@ export default function SchoolSignupsPage() {
                       )}
                     </div>
 
-                    <div className="mt-6 flex gap-3">
+                    <div className="mt-6 flex gap-2">
                       <button
                         onClick={() => handleApproval(signup.id, "approved")}
                         disabled={isUpdating === signup.id}
-                        className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {isUpdating === signup.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -468,14 +526,9 @@ export default function SchoolSignupsPage() {
                         )}
                       </button>
                       <button
-                        onClick={() => {
-                          const notes = prompt("Enter rejection reason (optional):")
-                          if (notes !== null) {
-                            handleApproval(signup.id, "rejected", notes)
-                          }
-                        }}
+                        onClick={() => openModal(signup.id, "rejected", "Reject School", "Enter rejection reason (required)...", true)}
                         disabled={isUpdating === signup.id}
-                        className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {isUpdating === signup.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -492,8 +545,102 @@ export default function SchoolSignupsPage() {
               </div>
             </div>
           )}
+
+          {/* Rejected Signups Section */}
+          {rejectedSignups.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Rejected Signups</h2>
+              <div className="space-y-6">
+                {rejectedSignups.map((signup) => (
+                  <div key={signup.id} className="border border-gray-200 rounded-lg p-6 bg-red-50/30">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                          <School className="h-5 w-5 text-red-600" />
+                          {signup.school_name}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">{signup.email}</p>
+                      </div>
+                      <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                        Rejected
+                      </span>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Contact Name</p>
+                        <p className="font-medium text-gray-900">{signup.contact_name}</p>
+                      </div>
+                      {signup.review_notes && (
+                        <div className="md:col-span-2">
+                          <p className="text-gray-600">Rejection Reason</p>
+                          <p className="font-medium text-red-900">{signup.review_notes}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-6 flex gap-3">
+                      <button
+                        onClick={() => openModal(signup.id, "pending", "Move to Review", "Enter notes (optional)...")}
+                        disabled={isUpdating === signup.id}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isUpdating === signup.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Clock className="h-4 w-4" />
+                            Move to Review
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Notes Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900">{modalData?.title}</h3>
+            </div>
+            <div className="p-6">
+              <textarea
+                value={modalNotes}
+                onChange={(e) => setModalNotes(e.target.value)}
+                placeholder={modalData?.placeholder}
+                className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-gray-900"
+                autoFocus
+              />
+              {modalData?.required && !modalNotes.trim() && (
+                <p className="text-xs text-red-500 mt-1">* A reason is required for this action</p>
+              )}
+            </div>
+            <div className="p-6 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleModalSubmit}
+                disabled={modalData?.required && !modalNotes.trim()}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   )
 }

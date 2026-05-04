@@ -57,54 +57,69 @@ export default function LoginPage() {
         throw new Error("User profile not found. Please contact support.")
       }
 
-      // If role is NULL, try to determine it from vendor_signups or school_signups
       let finalRole = profile.role
-      if (!profile.role || profile.role === null) {
-        console.warn("Role is NULL, attempting to determine from signup records")
-        
-        // Check if user is a vendor
-        const { data: vendorSignup } = await supabase
-          .from("vendor_signups")
-          .select("id")
-          .eq("user_id", data.user.id)
-          .maybeSingle()
-        
-        if (vendorSignup) {
-          // Update profile to vendor
-          const { error: updateError } = await supabase
-            .from("user_profiles")
-            .update({ role: "vendor" })
-            .eq("id", data.user.id)
-          
-          if (!updateError) {
-            finalRole = "vendor"
-            console.log("Fixed NULL role - set to vendor")
-          }
-        } else {
-          // Check if user is a school
+      
+      // If role is NULL or if we need to verify the assigned role
+      // This part now also checks if the assigned role has any data, if not, checks the other role
+      const checkAndFixRole = async () => {
+        // 1. If role is school, verify it. If no school data, check if vendor data exists.
+        if (finalRole === "school" || !finalRole) {
           const { data: schoolSignup } = await supabase
             .from("school_signups")
             .select("id")
-            .eq("user_id", data.user.id)
+            .or(`user_id.eq.${data.user.id}${data.user.email ? `,email.eq.${data.user.email}` : ''}`)
             .maybeSingle()
           
           if (schoolSignup) {
-            // Update profile to school
-            const { error: updateError } = await supabase
-              .from("user_profiles")
-              .update({ role: "school" })
-              .eq("id", data.user.id)
-            
-            if (!updateError) {
+            if (finalRole !== "school") {
+              await supabase.from("user_profiles").update({ role: "school" }).eq("id", data.user.id)
               finalRole = "school"
-              console.log("Fixed NULL role - set to school")
             }
+            return
+          }
+          
+          // No school data, check if they are a vendor
+          const { data: vendorSignup } = await supabase
+            .from("vendor_signups")
+            .select("id")
+            .or(`user_id.eq.${data.user.id}${data.user.email ? `,email.eq.${data.user.email}` : ''}`)
+            .maybeSingle()
+            
+          if (vendorSignup) {
+            await supabase.from("user_profiles").update({ role: "vendor" }).eq("id", data.user.id)
+            finalRole = "vendor"
+            return
           }
         }
         
-        if (!finalRole) {
-          throw new Error("Unable to determine user role. Please contact support.")
+        // 2. If role is vendor, verify it. If no vendor data, check if school data exists.
+        if (finalRole === "vendor") {
+          const { data: vendorSignup } = await supabase
+            .from("vendor_signups")
+            .select("id")
+            .or(`user_id.eq.${data.user.id}${data.user.email ? `,email.eq.${data.user.email}` : ''}`)
+            .maybeSingle()
+            
+          if (!vendorSignup) {
+            // Check if they are actually a school
+            const { data: schoolSignup } = await supabase
+              .from("school_signups")
+              .select("id")
+              .or(`user_id.eq.${data.user.id}${data.user.email ? `,email.eq.${data.user.email}` : ''}`)
+              .maybeSingle()
+              
+            if (schoolSignup) {
+              await supabase.from("user_profiles").update({ role: "school" }).eq("id", data.user.id)
+              finalRole = "school"
+            }
+          }
         }
+      }
+
+      await checkAndFixRole()
+
+      if (!finalRole) {
+        throw new Error("Unable to determine user role. Please contact support.")
       }
 
       console.log("User profile loaded:", { userId: data.user.id, role: finalRole, profileId: profile.id })

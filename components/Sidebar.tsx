@@ -4,26 +4,44 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { LayoutDashboard, LogOut, Menu, X, Ticket, School, FileText, Building2, CreditCard, User } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [accountStatus, setAccountStatus] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     checkUserRole();
   }, []);
 
   const checkUserRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      setUserRole(profile?.role || null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        
+        const role = profile?.role || null;
+        setUserRole(role);
+
+        if (role === "school") {
+          const { data: signup } = await supabase
+            .from("school_signups")
+            .select("status")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          setAccountStatus(signup?.status || null);
+        }
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -93,18 +111,25 @@ export default function Sidebar() {
 
   // Guess navigation items from pathname while role is loading to prevent flash
   const getNavigationItems = () => {
-    if (userRole === "admin") return adminNavigationItems;
-    if (userRole === "vendor") return vendorNavigationItems;
-    if (userRole === "school") return schoolNavigationItems;
-    
+    let items = adminNavigationItems;
+
+    if (userRole === "admin") items = adminNavigationItems;
+    else if (userRole === "vendor") items = vendorNavigationItems;
+    else if (userRole === "school") items = schoolNavigationItems;
     // Fallback to pathname if userRole is null
-    if (pathname?.startsWith("/school-dashboard") || pathname?.startsWith("/apply") || pathname?.startsWith("/my-applications")) {
-      return schoolNavigationItems;
+    else if (pathname?.startsWith("/school-dashboard") || pathname?.startsWith("/apply") || pathname?.startsWith("/my-applications")) {
+      items = schoolNavigationItems;
     }
-    if (pathname?.startsWith("/vendor")) {
-      return vendorNavigationItems;
+    else if (pathname?.startsWith("/vendor")) {
+      items = vendorNavigationItems;
     }
-    return adminNavigationItems;
+
+    // Filter items for school users under evaluation (pending, waitlisted, or rejected)
+    if ((userRole === "school" || (!userRole && items === schoolNavigationItems)) && accountStatus && accountStatus !== "approved") {
+      return items.filter(item => item.path !== "/my-applications");
+    }
+    
+    return items;
   };
 
   const navigationItems = getNavigationItems();
@@ -154,30 +179,45 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">
             <h1 className="text-2xl font-bold text-gray-900">
-              {getDashboardTitle()}
+              {isLoading ? (
+                <Skeleton className="h-8 w-40" />
+              ) : (
+                getDashboardTitle()
+              )}
             </h1>
             <p className="text-xs text-gray-500 mt-1">Global Bright Futures</p>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-2">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => handleNavigation(item.path)}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors w-full text-left ${active
-                    ? "bg-blue-50 text-blue-700 font-semibold"
-                    : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              );
-            })}
+            {isLoading ? (
+              <>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center space-x-3 px-4 py-3">
+                    <Skeleton className="w-5 h-5 rounded-full" />
+                    <Skeleton className="h-5 w-32" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              navigationItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => handleNavigation(item.path)}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors w-full text-left ${active
+                      ? "bg-blue-50 text-blue-700 font-semibold"
+                      : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                );
+              })
+            )}
           </nav>
 
           {/* Logout */}

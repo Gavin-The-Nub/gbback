@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type Voucher = {
   id: string
@@ -37,6 +38,7 @@ export default function SchoolDashboard() {
   const [voucherSearch, setVoucherSearch] = useState("")
 
 
+
   const loadVouchers = useCallback(async (schoolId: string) => {
     try {
       const { data, error } = await supabase
@@ -52,6 +54,8 @@ export default function SchoolDashboard() {
       toast.error("Failed to load vouchers")
     }
   }, [])
+
+
 
 
 
@@ -194,18 +198,42 @@ export default function SchoolDashboard() {
         // If no school data, user is pending approval - load signup status instead
         if (!schoolData) {
           console.log("School profile not found - checking signup status")
-          const { data: signupData } = await supabase
+          
+          // Try to find by user_id first
+          let { data: signupData } = await supabase
             .from("school_signups")
-            .select("school_name, status, reviewed_at, review_notes")
+            .select("id, user_id, school_name, status, reviewed_at, review_notes, email")
             .eq("user_id", user.id)
             .maybeSingle()
 
+          // If not found by user_id, try by email as fallback (for legacy records)
+          if (!signupData && user.email) {
+            console.log("Not found by user_id, trying email fallback:", user.email)
+            const { data: emailData } = await supabase
+              .from("school_signups")
+              .select("id, user_id, school_name, status, reviewed_at, review_notes, email")
+              .eq("email", user.email)
+              .maybeSingle()
+            
+            if (emailData) {
+              signupData = emailData
+              // Automatically link user_id if it's missing (auto-heal)
+              if (!emailData.user_id) {
+                console.log("Auto-healing signup record with user_id")
+                await supabase
+                  .from("school_signups")
+                  .update({ user_id: user.id })
+                  .eq("id", emailData.id)
+              }
+            }
+          }
+
           if (signupData) {
-            // Set a placeholder profile for pending schools
+            console.log("Found signup record:", signupData.status)
             setSchoolProfile({
               id: user.id,
               school_name: signupData.school_name || "Pending School",
-              email: user.email,
+              email: user.email || signupData.email || "",
               status: signupData.status || "pending",
               isPending: true,
             })
@@ -214,8 +242,23 @@ export default function SchoolDashboard() {
             setIsLoading(false)
             return // Exit early - pending approval
           } else {
+            // No school signup found - check if they are actually a vendor
+            console.log("No school signup found - checking if user is actually a vendor")
+            const { data: vendorSignup } = await supabase
+              .from("vendor_signups")
+              .select("id")
+              .or(`user_id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ''}`)
+              .maybeSingle()
+
+            if (vendorSignup) {
+              console.log("User is actually a vendor - updating role and redirecting")
+              await supabase.from("user_profiles").update({ role: "vendor" }).eq("id", user.id)
+              window.location.href = "/vendor"
+              return
+            }
+
             // No signup record either - this is an error
-            console.error("No school profile or signup record found")
+            console.error("No school profile or signup record found for user:", user.id, user.email)
             toast.error("School profile not found. Please contact support.")
             router.replace("/auth/login")
             return
@@ -226,12 +269,22 @@ export default function SchoolDashboard() {
 
         setSchoolProfile(schoolData)
 
-        // Load signup status (only if we have schoolData)
-        const { data: signupData } = await supabase
+        // Try to find by user_id first
+        let { data: signupData } = await supabase
           .from("school_signups")
-          .select("status, reviewed_at, review_notes")
+          .select("id, user_id, status, reviewed_at, review_notes, email")
           .eq("user_id", user.id)
           .maybeSingle()
+
+        // Fallback to email for legacy records
+        if (!signupData && user.email) {
+          const { data: emailData } = await supabase
+            .from("school_signups")
+            .select("id, user_id, status, reviewed_at, review_notes, email")
+            .eq("email", user.email)
+            .maybeSingle()
+          signupData = emailData
+        }
 
         if (!mounted) return
         setSignupStatus(signupData)
@@ -285,9 +338,80 @@ export default function SchoolDashboard() {
         <div className="lg:pl-64">
           <Header userName="School" role="school" />
           <main className="p-6">
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            <div className="mb-8">
+              <Skeleton className="h-9 w-64 mb-2" />
+              <Skeleton className="h-4 w-96" />
             </div>
+
+            {/* Account Status Skeleton */}
+            <Card className="mb-8">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded-full" />
+                  <Skeleton className="h-6 w-32" />
+                </div>
+                <Skeleton className="h-4 w-64 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-24 mb-1" />
+                      <Skeleton className="h-6 w-48" />
+                    </div>
+                    <Skeleton className="h-7 w-24 rounded-full" />
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i}>
+                        <Skeleton className="h-3 w-20 mb-1" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-4 md:grid-cols-1 mb-8">
+              <Card>
+                <CardContent className="pt-6">
+                  <Skeleton className="h-8 w-16 mb-1" />
+                  <Skeleton className="h-4 w-32" />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Vouchers List Skeleton */}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <Skeleton className="h-6 w-32 mb-1" />
+                    <Skeleton className="h-4 w-48" />
+                  </div>
+                  <Skeleton className="h-10 w-full md:w-64" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Skeleton className="h-5 w-5 rounded-full" />
+                        <Skeleton className="h-6 w-32" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                      </div>
+                      <div className="flex items-center gap-4 mb-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </main>
         </div>
       </div>
@@ -428,7 +552,7 @@ export default function SchoolDashboard() {
                       <div>
                         <p className="text-sm font-medium text-red-900">Account Rejected</p>
                         <p className="text-sm text-red-700 mt-1">
-                          Your school registration has been rejected. Please contact the administrator for more information.
+                          Your school registration has been rejected. Please review the notes above and contact the administrator for more information.
                         </p>
                       </div>
                     </div>

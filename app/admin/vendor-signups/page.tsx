@@ -45,6 +45,7 @@ export default function VendorSignupsPage() {
     status: VendorSignup["status"];
     title: string;
     placeholder: string;
+    required?: boolean;
   } | null>(null)
   const [modalNotes, setModalNotes] = useState("")
 
@@ -90,16 +91,20 @@ export default function VendorSignupsPage() {
     }
   }
 
-  const openModal = (id: string, status: VendorSignup["status"], title: string, placeholder: string = "Enter notes (optional)...") => {
-    setModalData({ id, status, title, placeholder })
+  const openModal = (id: string, status: VendorSignup["status"], title: string, placeholder: string = "Enter notes (optional)...", required: boolean = false) => {
+    setModalData({ id, status, title, placeholder, required })
     setModalNotes("")
     setIsModalOpen(true)
   }
 
-  const handleModalSubmit = () => {
+  const handleModalSubmit = async () => {
     if (modalData) {
-      handleStatusChange(modalData.id, modalData.status, modalNotes)
-      setIsModalOpen(false)
+      if (modalData.required && !modalNotes.trim()) {
+        toast.error("A reason is required for this action")
+        return
+      }
+      setIsModalOpen(false) // Close early but wait for the update
+      await handleStatusChange(modalData.id, modalData.status, modalNotes)
       setModalData(null)
     }
   }
@@ -323,12 +328,10 @@ export default function VendorSignupsPage() {
       case "cancelled":
       case "rejected":
         return "bg-red-100 text-red-800"
-      case "under_review":
-        return "bg-yellow-100 text-yellow-800"
       case "waitlisted":
         return "bg-orange-100 text-orange-800"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-blue-100 text-blue-800"
     }
   }
 
@@ -552,7 +555,7 @@ export default function VendorSignupsPage() {
                             )}
                           </button>
                           <button
-                            onClick={() => openModal(signup.id, "rejected", "Reject Vendor", "Enter rejection reason (optional)...")}
+                            onClick={() => openModal(signup.id, "rejected", "Reject Vendor", "Enter rejection reason (required)...", true)}
                             disabled={isUpdating === signup.id}
                             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                           >
@@ -598,7 +601,7 @@ export default function VendorSignupsPage() {
                             )}
                           </button>
                           <button
-                            onClick={() => openModal(signup.id, "rejected", "Reject Vendor", "Enter rejection reason (optional)...")}
+                            onClick={() => openModal(signup.id, "rejected", "Reject Vendor", "Enter rejection reason (required)...", true)}
                             disabled={isUpdating === signup.id}
                             className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                           >
@@ -646,20 +649,32 @@ export default function VendorSignupsPage() {
                         </button>
                       )}
                       {(signup.status === "waitlisted" || signup.status === "rejected" || signup.status === "cancelled") && (
-                        <button
-                          onClick={() => handleStatusChange(signup.id, "under_review")}
-                          disabled={isUpdating === signup.id}
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {isUpdating === signup.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Clock className="h-4 w-4" />
-                              Move back to Review
-                            </>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleStatusChange(signup.id, "under_review")}
+                            disabled={isUpdating === signup.id}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {isUpdating === signup.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Clock className="h-4 w-4" />
+                                Move to Review
+                              </>
+                            )}
+                          </button>
+                          {signup.status === "waitlisted" && (
+                            <button
+                              onClick={() => openModal(signup.id, "rejected", "Reject Vendor", "Enter rejection reason (required)...", true)}
+                              disabled={isUpdating === signup.id}
+                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              <XCircle className="h-4 w-4" />
+                              Reject
+                            </button>
                           )}
-                        </button>
+                        </div>
                       )}
 
                     </div>
@@ -686,6 +701,9 @@ export default function VendorSignupsPage() {
                 className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-gray-900"
                 autoFocus
               />
+              {modalData?.required && !modalNotes.trim() && (
+                <p className="text-xs text-red-500 mt-1">* A reason is required for this action</p>
+              )}
             </div>
             <div className="p-6 bg-gray-50 flex justify-end gap-3">
               <button
@@ -696,7 +714,8 @@ export default function VendorSignupsPage() {
               </button>
               <button
                 onClick={handleModalSubmit}
-                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition shadow-md"
+                disabled={modalData?.required && !modalNotes.trim()}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Confirm
               </button>
