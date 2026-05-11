@@ -118,53 +118,56 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    checkAuth()
-  }, [router, loadData])
+    let subscription: any;
 
-  const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push("/auth/login")
-      return
+    const initialize = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push("/auth/login")
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+
+      if (!profile || profile.role !== "admin") {
+        router.push("/auth/login")
+        return
+      }
+
+      // Load data on mount
+      loadData()
+      
+      // Set up real-time subscription to listen for new applications
+      subscription = supabase
+        .channel('scholarship_applications_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'scholarship_applications'
+          },
+          (payload) => {
+            console.log('Database change detected:', payload)
+            // Reload data when changes are detected
+            loadData()
+          }
+        )
+        .subscribe()
     }
 
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single()
+    initialize()
 
-    if (!profile || profile.role !== "admin") {
-      router.push("/auth/login")
-      return
-    }
-
-    // Load data on mount
-    loadData()
-    
-    // Set up real-time subscription to listen for new applications
-    const subscription = supabase
-      .channel('scholarship_applications_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'scholarship_applications'
-        },
-        (payload) => {
-          console.log('Database change detected:', payload)
-          // Reload data when changes are detected
-          loadData()
-        }
-      )
-      .subscribe()
-
-    // Cleanup subscription on unmount
     return () => {
-      subscription.unsubscribe()
+      if (subscription) {
+        subscription.unsubscribe()
+      }
     }
-  }
+  }, [router, loadData])
 
   const calculateStats = (apps: Application[], donations: Donation[]) => {
     setStats({

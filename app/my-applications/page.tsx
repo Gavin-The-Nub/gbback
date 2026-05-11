@@ -40,6 +40,7 @@ export default function MyApplicationsPage() {
 
   useEffect(() => {
     let mounted = true
+    let applicationsChannel: any = null
 
     const checkAuthAndLoad = async () => {
       try {
@@ -98,6 +99,26 @@ export default function MyApplicationsPage() {
         }))
 
         setApplications(formattedApps as ScholarshipApplication[])
+
+        // Set up subscription if not already set up
+        if (!applicationsChannel && mounted) {
+          applicationsChannel = supabase
+            .channel('my_applications_changes')
+            .on(
+              'postgres_changes',
+              {
+                event: '*',
+                schema: 'public',
+                table: 'scholarship_applications',
+                filter: `school_user_id=eq.${user.id}`,
+              },
+              (payload) => {
+                console.log('Application change detected:', payload)
+                checkAuthAndLoad()
+              }
+            )
+            .subscribe()
+        }
       } catch (error: any) {
         console.error("Error loading applications:", error)
         toast.error("Failed to load applications")
@@ -108,33 +129,7 @@ export default function MyApplicationsPage() {
       }
     }
 
-    let applicationsChannel: any = null
-
-    const setupSubscription = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user && mounted) {
-        applicationsChannel = supabase
-          .channel('my_applications_changes')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'scholarship_applications',
-              filter: `school_user_id=eq.${user.id}`,
-            },
-            (payload) => {
-              console.log('Application change detected:', payload)
-              checkAuthAndLoad()
-            }
-          )
-          .subscribe()
-      }
-    }
-
-    checkAuthAndLoad().then(() => {
-      setupSubscription()
-    })
+    checkAuthAndLoad()
 
     return () => {
       mounted = false
