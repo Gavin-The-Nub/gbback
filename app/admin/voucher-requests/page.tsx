@@ -76,8 +76,8 @@ export default function ScholarshipRequestsPage() {
 
       setScholarshipApplications(formattedApps as ScholarshipApplication[])
     } catch (error: any) {
-      console.error("Error loading scholarship applications:", error)
-      toast.error("Failed to load scholarship applications")
+      console.error("Error loading support applications:", error)
+      toast.error("Failed to load support applications")
     }
   }, [])
 
@@ -195,10 +195,10 @@ export default function ScholarshipRequestsPage() {
         }
       }
 
-      toast.success(`Scholarship application ${newStatus} successfully!`)
+      toast.success(`Support application ${newStatus} successfully!`)
       await loadScholarshipApplications()
     } catch (error: any) {
-      console.error("Error updating scholarship application:", error)
+      console.error("Error updating support application:", error)
       toast.error(error.message || "Failed to update application")
     } finally {
       setIsUpdating(null)
@@ -231,7 +231,7 @@ export default function ScholarshipRequestsPage() {
           table: 'scholarship_applications'
         },
         (payload) => {
-          console.log('Scholarship application change detected:', payload)
+          console.log('Support application change detected:', payload)
           loadScholarshipApplications()
         }
       )
@@ -273,9 +273,9 @@ export default function ScholarshipRequestsPage() {
         <main className="p-6">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Scholarship Requests
+              Support Requests
             </h1>
-            <p className="text-gray-600">Review and approve scholarship applications from schools</p>
+            <p className="text-gray-600">Review and approve support applications from schools</p>
           </div>
 
           {/* Stats Overview */}
@@ -320,14 +320,14 @@ export default function ScholarshipRequestsPage() {
             </select>
           </div>
 
-          {/* Scholarship Applications List */}
+          {/* Support Applications List */}
           <div className="space-y-4">
             {filteredScholarships.length === 0 ? (
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-center py-8">
                     <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No scholarship applications found</p>
+                    <p className="text-gray-500">No support applications found</p>
                   </div>
                 </CardContent>
               </Card>

@@ -68,7 +68,7 @@ export default function Sidebar() {
     },
     {
       path: "/admin/voucher-requests",
-      label: "Scholarship Requests",
+      label: "Support Requests",
       icon: Ticket,
     },
     {
@@ -96,7 +96,7 @@ export default function Sidebar() {
     },
     {
       path: "/apply",
-      label: "Apply for Scholarship",
+      label: "Apply for Support",
       icon: FileText,
     },
     {

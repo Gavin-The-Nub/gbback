@@ -193,9 +193,9 @@ export default function MyApplicationsPage() {
         <main className="p-6">
           <div className="max-w-7xl mx-auto">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Scholarship Applications</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">My Support Applications</h1>
               <p className="text-gray-600">
-                View and track all your scholarship applications and voucher statuses.
+                View and track all your support applications and voucher statuses.
               </p>
             </div>
 
@@ -266,7 +266,7 @@ export default function MyApplicationsPage() {
                     <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">No Applications Yet</h3>
                     <p className="text-gray-600 mb-4">
-                      You haven't submitted any scholarship applications yet.
+                      You haven't submitted any support applications yet.
                     </p>
                     <button
                       onClick={() => router.push("/apply")}

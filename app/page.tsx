@@ -375,7 +375,7 @@ export default function AdminDashboard() {
               Dashboard
             </h1>
             <p className="text-gray-600">
-              Overview of scholarship applications and donations
+              Overview of support applications and donations
             </p>
           </div>
           {/* Stats Overview */}

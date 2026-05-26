@@ -81,15 +81,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, data })
     }
 
-    // Handle scholarship application emails (existing code)
+    // Handle support application emails (existing code)
     if (!to || !studentName || !status) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
     const subject =
       status === "approved"
-        ? "🎉 Your Scholarship Application Has Been Approved!"
-        : "Scholarship Application Update"
+        ? "🎉 Your Support Application Has Been Approved!"
+        : "Support Application Update"
 
     const htmlContent =
       status === "approved"
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
           
           <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
             <p style="font-size: 18px; margin-bottom: 20px;">
-              We are thrilled to inform you that your scholarship application has been <strong style="color: #10b981;">approved</strong>!
+              We are thrilled to inform you that your support application has been <strong style="color: #10b981;">approved</strong>!
             </p>
             
             <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
             </div>
             
             <p style="margin-top: 20px;">
-              Our team will be in touch with you shortly to discuss the next steps and provide you with more details about your scholarship.
+              Our team will be in touch with you shortly to discuss the next steps and provide you with more details about your support.
             </p>
             
             <p style="margin-top: 20px;">
@@ -142,14 +142,14 @@ export async function POST(request: NextRequest) {
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: #f9f9f9; padding: 30px; border-radius: 10px; border: 1px solid #e0e0e0;">
-            <h2 style="color: #333; margin-top: 0;">Scholarship Application Update</h2>
+            <h2 style="color: #333; margin-top: 0;">Support Application Update</h2>
             
             <p style="font-size: 16px;">
               Dear ${studentName},
             </p>
             
             <p>
-              Thank you for your interest in our scholarship program. After careful review, we regret to inform you that we are unable to approve your application at this time.
+              Thank you for your interest in our support program. After careful review, we regret to inform you that we are unable to approve your application at this time.
             </p>
             
             <p>

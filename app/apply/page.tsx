@@ -289,7 +289,7 @@ export default function ApplyPage() {
                       Account Under Evaluation
                     </h2>
                     <p className="text-gray-600 mb-4">
-                      Your school account is currently pending admin approval. You will be able to submit scholarship applications once your account has been reviewed and approved.
+                      Your school account is currently pending admin approval. You will be able to submit support applications once your account has been reviewed and approved.
                     </p>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
                       <p className="text-sm text-blue-800">
@@ -351,9 +351,9 @@ export default function ApplyPage() {
           <div className="max-w-3xl mx-auto">
             <Card>
               <CardHeader>
-                <CardTitle>Scholarship Application Form</CardTitle>
+                <CardTitle>Support Application Form</CardTitle>
                 <CardDescription>
-                  Complete the form below to apply for educational support through our scholarship program.
+                  Complete the form below to apply for educational support through our support program.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -514,7 +514,7 @@ export default function ApplyPage() {
                       name="financialNeedDescription"
                       value={formData.financialNeedDescription}
                       onChange={handleChange}
-                      placeholder="Please describe the financial need and how this scholarship would help..."
+                      placeholder="Please describe the financial need and how this support would help..."
                       rows={4}
                     />
                   </div>
