@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle, AlertCircle, Info } from "lucide-react"
 
 export default function ApplyPage() {
   const router = useRouter()
@@ -23,6 +23,7 @@ export default function ApplyPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [schoolProfile, setSchoolProfile] = useState<any>(null)
   const [formData, setFormData] = useState({
+    beneficiaryType: "STUDENT",
     studentName: "",
     email: "",
     phone: "",
@@ -36,6 +37,32 @@ export default function ApplyPage() {
     voucherAmount: "",
     country: "USA",
   })
+
+  const [agreements, setAgreements] = useState({
+    eligibility: false,
+    impactReport: false,
+    consentStatement: false,
+    awarenessFlyer: false,
+    awarenessTestimonial: false,
+    awarenessImpact: false,
+    awarenessSocial: false,
+    awarenessNone: false,
+  })
+
+  const handleAgreementChange = (name: string, checked: boolean) => {
+    setAgreements(prev => {
+      const updated = { ...prev, [name]: checked }
+      if (name === "awarenessNone" && checked) {
+        updated.awarenessFlyer = false
+        updated.awarenessTestimonial = false
+        updated.awarenessImpact = false
+        updated.awarenessSocial = false
+      } else if (checked && (name === "awarenessFlyer" || name === "awarenessTestimonial" || name === "awarenessImpact" || name === "awarenessSocial")) {
+        updated.awarenessNone = false
+      }
+      return updated
+    })
+  }
 
   useEffect(() => {
     checkAuthAndLoadProfile()
@@ -135,8 +162,14 @@ export default function ApplyPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    if (!formData.studentName.trim() || !formData.schoolName.trim() || !formData.programType) {
+    if (!formData.studentName.trim() || !formData.schoolName.trim() || !formData.programType || !formData.financialNeedDescription.trim()) {
       toast.error("Please fill in all required fields.")
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!agreements.eligibility || !agreements.impactReport || !agreements.consentStatement) {
+      toast.error("Please read and accept all required agreements.")
       setIsSubmitting(false)
       return
     }
@@ -178,21 +211,34 @@ export default function ApplyPage() {
         .from("scholarship_applications")
         .insert([
           {
+            beneficiary_type: formData.beneficiaryType,
             student_name: formData.studentName,
             email: schoolEmail, // Use school account email
             phone: formData.phone || null,
             school_name: formData.schoolName,
             district: formData.district || null,
-            grade_level: formData.gradeLevel || null,
+            grade_level: formData.beneficiaryType === "STUDENT" ? (formData.gradeLevel || null) : null,
             program_type: formData.programType,
             financial_need_description: formData.financialNeedDescription || null,
-            academic_goals: formData.academicGoals || null,
+            academic_goals: null,
             student_count: parseInt(formData.studentCount) || 1,
             voucher_amount: formData.voucherAmount ? parseFloat(formData.voucherAmount) : null,
             country: formData.country,
             status: "pending",
             submitted_by: user.id,
             school_user_id: user.id, // Link to school account
+            agreements: {
+              eligibility_accepted: agreements.eligibility,
+              impact_report_accepted: agreements.impactReport,
+              awareness_consent_accepted: agreements.consentStatement,
+              community_awareness_choices: {
+                share_flyer: agreements.awarenessFlyer,
+                provide_testimonial: agreements.awarenessTestimonial,
+                allow_reporting: agreements.awarenessImpact,
+                social_post: agreements.awarenessSocial,
+                decline_participation: agreements.awarenessNone
+              }
+            }
           },
         ])
         .select()
@@ -205,6 +251,7 @@ export default function ApplyPage() {
       // Reset form after 3 seconds
       setTimeout(() => {
         setFormData({
+          beneficiaryType: "STUDENT",
           studentName: "",
           email: "",
           phone: "",
@@ -217,6 +264,16 @@ export default function ApplyPage() {
           studentCount: "1",
           voucherAmount: "",
           country: "USA",
+        })
+        setAgreements({
+          eligibility: false,
+          impactReport: false,
+          consentStatement: false,
+          awarenessFlyer: false,
+          awarenessTestimonial: false,
+          awarenessImpact: false,
+          awarenessSocial: false,
+          awarenessNone: false,
         })
         setIsSuccess(false)
       }, 3000)
@@ -358,10 +415,33 @@ export default function ApplyPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="beneficiaryType">
+                      Apply For <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.beneficiaryType}
+                      onValueChange={(value) => handleSelectChange("beneficiaryType", value)}
+                      required
+                    >
+                      <SelectTrigger id="beneficiaryType">
+                        <SelectValue placeholder="Select who this support is for" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="STUDENT">STUDENT</SelectItem>
+                        <SelectItem value="TEACHER">TEACHER</SelectItem>
+                        <SelectItem value="SCHOOL">SCHOOL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="studentName">
-                        Student Name <span className="text-red-500">*</span>
+                        {formData.beneficiaryType === "STUDENT" && "Student Name"}
+                        {formData.beneficiaryType === "TEACHER" && "Teacher Name"}
+                        {formData.beneficiaryType === "SCHOOL" && "School / Initiative Name"}
+                        {" "}<span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="studentName"
@@ -369,7 +449,13 @@ export default function ApplyPage() {
                         value={formData.studentName}
                         onChange={handleChange}
                         required
-                        placeholder="Enter full name"
+                        placeholder={
+                          formData.beneficiaryType === "STUDENT"
+                            ? "Enter student's full name"
+                            : formData.beneficiaryType === "TEACHER"
+                            ? "Enter teacher's full name"
+                            : "Enter school or initiative name"
+                        }
                       />
                     </div>
 
@@ -394,7 +480,7 @@ export default function ApplyPage() {
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className={formData.beneficiaryType === "STUDENT" ? "grid md:grid-cols-2 gap-6" : "grid md:grid-cols-1 gap-6"}>
                     <div className="space-y-2 phone-input-wrapper">
                       <Label htmlFor="phone">Phone Number</Label>
                       <PhoneInput
@@ -406,23 +492,25 @@ export default function ApplyPage() {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="gradeLevel">Grade Level</Label>
-                      <Select
-                        value={formData.gradeLevel}
-                        onValueChange={(value) => handleSelectChange("gradeLevel", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select grade level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="elementary">Elementary School</SelectItem>
-                          <SelectItem value="middle">Middle School</SelectItem>
-                          <SelectItem value="high">High School</SelectItem>
-                          <SelectItem value="college">College</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {formData.beneficiaryType === "STUDENT" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="gradeLevel">Grade Level</Label>
+                        <Select
+                          value={formData.gradeLevel}
+                          onValueChange={(value) => handleSelectChange("gradeLevel", value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select grade level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="elementary">Elementary School</SelectItem>
+                            <SelectItem value="middle">Middle School</SelectItem>
+                            <SelectItem value="high">High School</SelectItem>
+                            <SelectItem value="college">College</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-6">
@@ -467,12 +555,14 @@ export default function ApplyPage() {
                         <SelectValue placeholder="Select a program type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Tutoring Scholarships">Tutoring Scholarships</SelectItem>
-                        <SelectItem value="College Teaching Fellowship">College Teaching Fellowship</SelectItem>
-                        <SelectItem value="Community Mentorship">Community Mentorship</SelectItem>
-                        <SelectItem value="Outreach Initiatives">Outreach Initiatives</SelectItem>
-                        <SelectItem value="Educational Materials & School Supplies">
-                          Educational Materials & School Supplies
+                        <SelectItem value="GBFF Academic Support (Tutoring/Enrichment)">
+                          GBFF Academic Support (Tutoring/Enrichment)
+                        </SelectItem>
+                        <SelectItem value="GBFF Teacher Development (Mentorship/PD)">
+                          GBFF Teacher Development (Mentorship/PD)
+                        </SelectItem>
+                        <SelectItem value="GBFF Amazon Classroom School Supplies/Resources">
+                          GBFF Amazon Classroom School Supplies/Resources
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -493,42 +583,171 @@ export default function ApplyPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="voucherAmount">Requested Voucher Amount ($)</Label>
-                      <Input
-                        id="voucherAmount"
-                        name="voucherAmount"
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <Label htmlFor="voucherAmount">Requested Voucher Amount ($) <span className="text-red-500">*</span></Label>
+                      <Select
                         value={formData.voucherAmount}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                      />
+                        onValueChange={(value) => handleSelectChange("voucherAmount", value)}
+                        required
+                      >
+                        <SelectTrigger id="voucherAmount">
+                          <SelectValue placeholder="Select funding amount" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="300">$300 (Amazon Classroom Supplies Support)</SelectItem>
+                          <SelectItem value="1000">$1000 Individual Academic/Development Support</SelectItem>
+                          <SelectItem value="5000">$5000 School Academic Support Grant</SelectItem>
+                          <SelectItem value="10000">$10000 School Education Expansion Grant</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
+                  {formData.voucherAmount === "300" && (
+                    <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-lg text-sm text-blue-900 leading-relaxed">
+                      <p className="font-semibold mb-1 flex items-center gap-1.5 text-blue-950">
+                        <Info className="h-4 w-4 text-blue-600" />
+                        Amazon Classroom Supplies Support Policy:
+                      </p>
+                      <p className="text-blue-900">
+                        This voucher provides controlled purchasing access through the GBFF Amazon Business nonprofit account for approved educational supplies and classroom resources via vetted GBFF partners. The total value is capped at $300, including taxes, shipping, and fees. Funding is based on educational need, review, and availability, and may be partially or fully awarded. Submission does not guarantee approval. One application is allowed per program cycle/year unless otherwise invited. Approved vouchers are non-transferable, have no cash value, and must be used only for approved educational purposes within the $300 limit.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label htmlFor="financialNeedDescription">Financial Need Description</Label>
+                    <Label htmlFor="financialNeedDescription">
+                      Please describe the educational need, challenge, or opportunity you are requesting support for, how the requested resources/programs will benefit students or teachers, and why this support is important at this time? <span className="text-red-500">*</span>
+                    </Label>
                     <Textarea
                       id="financialNeedDescription"
                       name="financialNeedDescription"
                       value={formData.financialNeedDescription}
                       onChange={handleChange}
-                      placeholder="Please describe the financial need and how this support would help..."
-                      rows={4}
+                      required
+                      placeholder="Please provide a detailed description..."
+                      rows={6}
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="academicGoals">Academic Goals</Label>
-                    <Textarea
-                      id="academicGoals"
-                      name="academicGoals"
-                      value={formData.academicGoals}
-                      onChange={handleChange}
-                      placeholder="Please describe the academic goals and how this program would support them..."
-                      rows={4}
-                    />
+                  {/* GBFF Application Acknowledgment & Agreement */}
+                  <div className="border-t border-gray-200 pt-6 space-y-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">GBFF Application Acknowledgment & Agreement</h3>
+                      <p className="text-xs text-gray-500">Please review and complete the required acknowledgments below before submitting your application.</p>
+                    </div>
+
+                    {/* 1. Funding & Program Eligibility */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-800">1. Funding & Program Eligibility <span className="text-red-500">*</span></h4>
+                      <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-600 select-none">
+                        <input
+                          type="checkbox"
+                          checked={agreements.eligibility}
+                          onChange={(e) => handleAgreementChange("eligibility", e.target.checked)}
+                          required
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span>
+                          I understand and agree that this application is for GBFF educational voucher support, which is subject to funding availability, program eligibility, and application review. I understand that approval is not guaranteed and may be partial or full based on demonstrated educational need and available resources. I acknowledge that all approved funds are non-transferable, have no cash value, and may only be used for approved educational purposes through GBFF-vetted and authorized partner vendors/programs (including GBFF Amazon Business classroom supply access where applicable). I understand that applications are limited to one submission per program cycle/year unless otherwise invited by GBFF, and that misuse, duplication, or unauthorized use may result in denial or termination of eligibility.
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* 2. Impact Report Requirement */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-800">2. Impact Report Requirement <span className="text-red-500">*</span></h4>
+                      <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-600 select-none">
+                        <input
+                          type="checkbox"
+                          checked={agreements.impactReport}
+                          onChange={(e) => handleAgreementChange("impactReport", e.target.checked)}
+                          required
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span>
+                          I understand and agree that completion of a brief post-use impact report is required after voucher utilization as part of program accountability and continued eligibility for future GBFF funding opportunities.
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* 3. Community Awareness Participation */}
+                    <div className="space-y-3 bg-gray-50/50 p-4 border border-gray-200/50 rounded-lg">
+                      <h4 className="text-sm font-semibold text-gray-800">3. Community Awareness Participation <span className="text-gray-400 text-xs font-normal">(Optional)</span></h4>
+                      <p className="text-xs text-gray-500 mb-2">
+                        GBFF values sharing the impact of educational support within communities. Participation in awareness activities is completely optional and does not affect funding eligibility or approval.
+                      </p>
+                      
+                      <div className="space-y-2 mt-2">
+                        <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-600 select-none">
+                          <input
+                            type="checkbox"
+                            checked={agreements.awarenessFlyer}
+                            onChange={(e) => handleAgreementChange("awarenessFlyer", e.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span>Share a GBFF-approved flyer or announcement within my school or organization (email, newsletter, bulletin, or internal communication)</span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-600 select-none">
+                          <input
+                            type="checkbox"
+                            checked={agreements.awarenessTestimonial}
+                            onChange={(e) => handleAgreementChange("awarenessTestimonial", e.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span>Provide a brief program feedback or testimonial (no student personal data required)</span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-600 select-none">
+                          <input
+                            type="checkbox"
+                            checked={agreements.awarenessImpact}
+                            onChange={(e) => handleAgreementChange("awarenessImpact", e.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span>Allow use of general program impact (non-identifying) for reporting or grant purposes</span>
+                        </label>
+
+                        <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-600 select-none">
+                          <input
+                            type="checkbox"
+                            checked={agreements.awarenessSocial}
+                            onChange={(e) => handleAgreementChange("awarenessSocial", e.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span>Share an optional social media post about receiving support (only if permitted by my school/district/organization)</span>
+                        </label>
+
+                        <div className="border-t border-gray-200/50 my-2 pt-2">
+                          <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-700 font-medium select-none">
+                            <input
+                              type="checkbox"
+                              checked={agreements.awarenessNone}
+                              onChange={(e) => handleAgreementChange("awarenessNone", e.target.checked)}
+                              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <span>I prefer not to participate in awareness activities</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Awareness Consent Statement */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-800">4. Awareness Consent Statement <span className="text-red-500">*</span></h4>
+                      <label className="flex items-start gap-3 cursor-pointer text-xs text-gray-600 select-none">
+                        <input
+                          type="checkbox"
+                          checked={agreements.consentStatement}
+                          onChange={(e) => handleAgreementChange("consentStatement", e.target.checked)}
+                          required
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span>
+                          I understand that participation in community awareness or sharing activities is completely voluntary and is not required for approval or receipt of GBFF funding or vouchers.
+                        </span>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="flex gap-4 pt-4">

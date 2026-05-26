@@ -12,6 +12,7 @@ import { Loader2, CheckCircle, XCircle, Clock, FileText, DollarSign, Calendar, U
 
 type ScholarshipApplication = {
   id: string
+  beneficiary_type?: "STUDENT" | "TEACHER" | "SCHOOL"
   student_name: string
   email: string
   phone: string | null
@@ -29,6 +30,18 @@ type ScholarshipApplication = {
   applied_date: string
   reviewed_at: string | null
   notes: string | null
+  agreements?: {
+    eligibility_accepted: boolean
+    impact_report_accepted: boolean
+    awareness_consent_accepted: boolean
+    community_awareness_choices: {
+      share_flyer: boolean
+      provide_testimonial: boolean
+      allow_reporting: boolean
+      social_post: boolean
+      decline_participation: boolean
+    }
+  } | null
 }
 
 export default function MyApplicationsPage() {
@@ -290,6 +303,11 @@ export default function MyApplicationsPage() {
                           <div className="flex items-center gap-3 mb-2">
                             <CardTitle className="text-xl">{application.student_name}</CardTitle>
                             {getStatusBadge(application.status)}
+                            {application.beneficiary_type && (
+                              <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-50 border border-blue-200">
+                                {application.beneficiary_type}
+                              </Badge>
+                            )}
                           </div>
                           <CardDescription className="flex items-center gap-4 mt-2">
                             <span className="flex items-center gap-1">
@@ -356,7 +374,7 @@ export default function MyApplicationsPage() {
 
                       {application.financial_need_description && (
                         <div className="mb-4">
-                          <p className="text-sm font-medium text-gray-700 mb-1">Financial Need:</p>
+                          <p className="text-sm font-medium text-gray-700 mb-1">Description of Need & Benefit:</p>
                           <p className="text-sm text-gray-600">{application.financial_need_description}</p>
                         </div>
                       )}
@@ -365,6 +383,34 @@ export default function MyApplicationsPage() {
                         <div className="mb-4">
                           <p className="text-sm font-medium text-gray-700 mb-1">Academic Goals:</p>
                           <p className="text-sm text-gray-600">{application.academic_goals}</p>
+                        </div>
+                      )}
+
+                      {application.agreements && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 text-sm">
+                          <p className="font-semibold text-gray-900 mb-2">Acknowledgments & Agreements:</p>
+                          <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-4">
+                            <li>Funding & Program Eligibility: <span className="font-semibold text-green-700">Accepted</span></li>
+                            <li>Impact Report Requirement: <span className="font-semibold text-green-700">Accepted</span></li>
+                            <li>Awareness Consent Statement: <span className="font-semibold text-green-700">Accepted</span></li>
+                            {application.agreements.community_awareness_choices && (
+                              <li>
+                                <span className="font-medium">Community Awareness Selections:</span>
+                                <ul className="list-disc pl-4 mt-1 space-y-1 text-gray-500">
+                                  {application.agreements.community_awareness_choices.share_flyer && <li>Share flyer or announcement</li>}
+                                  {application.agreements.community_awareness_choices.provide_testimonial && <li>Provide program feedback/testimonial</li>}
+                                  {application.agreements.community_awareness_choices.allow_reporting && <li>Allow use of general program impact</li>}
+                                  {application.agreements.community_awareness_choices.social_post && <li>Share optional social media post</li>}
+                                  {application.agreements.community_awareness_choices.decline_participation && <li>Preferred not to participate in awareness</li>}
+                                  {!application.agreements.community_awareness_choices.share_flyer &&
+                                   !application.agreements.community_awareness_choices.provide_testimonial &&
+                                   !application.agreements.community_awareness_choices.allow_reporting &&
+                                   !application.agreements.community_awareness_choices.social_post &&
+                                   !application.agreements.community_awareness_choices.decline_participation && <li>None selected</li>}
+                                </ul>
+                              </li>
+                            )}
+                          </ul>
                         </div>
                       )}
 

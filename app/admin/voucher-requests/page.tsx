@@ -12,6 +12,7 @@ import { generateVoucherCode } from "@/lib/utils"
 
 type ScholarshipApplication = {
   id: string
+  beneficiary_type?: "STUDENT" | "TEACHER" | "SCHOOL"
   student_name: string
   email: string
   phone: string | null
@@ -30,6 +31,18 @@ type ScholarshipApplication = {
   reviewed_at: string | null
   notes: string | null
   school_user_id: string
+  agreements?: {
+    eligibility_accepted: boolean
+    impact_report_accepted: boolean
+    awareness_consent_accepted: boolean
+    community_awareness_choices: {
+      share_flyer: boolean
+      provide_testimonial: boolean
+      allow_reporting: boolean
+      social_post: boolean
+      decline_participation: boolean
+    }
+  } | null
 }
 
 export default function ScholarshipRequestsPage() {
@@ -340,6 +353,11 @@ export default function ScholarshipRequestsPage() {
                         <div className="flex items-center gap-3 mb-2">
                           <UserIcon className="h-5 w-5 text-indigo-600" />
                           <span className="font-semibold text-lg">{application.student_name}</span>
+                          {application.beneficiary_type && (
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-xs font-semibold">
+                              {application.beneficiary_type}
+                            </span>
+                          )}
                           <span className="text-sm text-gray-600">from {application.school_name}</span>
                         </div>
                         <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
@@ -384,7 +402,7 @@ export default function ScholarshipRequestsPage() {
                         </div>
                         {application.financial_need_description && (
                           <div className="mt-2 mb-2">
-                            <p className="text-sm font-medium text-gray-900">Financial Need:</p>
+                            <p className="text-sm font-medium text-gray-900">Description of Need & Benefit:</p>
                             <p className="text-sm text-gray-600">{application.financial_need_description}</p>
                           </div>
                         )}
@@ -392,6 +410,33 @@ export default function ScholarshipRequestsPage() {
                           <div className="mt-2">
                             <p className="text-sm font-medium text-gray-900">Academic Goals:</p>
                             <p className="text-sm text-gray-600">{application.academic_goals}</p>
+                          </div>
+                        )}
+                        {application.agreements && (
+                          <div className="mt-4 pt-4 border-t border-gray-200 text-sm">
+                            <p className="font-semibold text-gray-900 mb-2">Acknowledgments & Agreements:</p>
+                            <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-4">
+                              <li>Funding & Program Eligibility: <span className="font-semibold text-green-700">Accepted</span></li>
+                              <li>Impact Report Requirement: <span className="font-semibold text-green-700">Accepted</span></li>
+                              <li>Awareness Consent Statement: <span className="font-semibold text-green-700">Accepted</span></li>
+                              {application.agreements.community_awareness_choices && (
+                                <li>
+                                  <span className="font-medium">Community Awareness Selections:</span>
+                                  <ul className="list-disc pl-4 mt-1 space-y-1 text-gray-500">
+                                    {application.agreements.community_awareness_choices.share_flyer && <li>Share flyer or announcement</li>}
+                                    {application.agreements.community_awareness_choices.provide_testimonial && <li>Provide program feedback/testimonial</li>}
+                                    {application.agreements.community_awareness_choices.allow_reporting && <li>Allow use of general program impact</li>}
+                                    {application.agreements.community_awareness_choices.social_post && <li>Share optional social media post</li>}
+                                    {application.agreements.community_awareness_choices.decline_participation && <li>Preferred not to participate in awareness</li>}
+                                    {!application.agreements.community_awareness_choices.share_flyer &&
+                                     !application.agreements.community_awareness_choices.provide_testimonial &&
+                                     !application.agreements.community_awareness_choices.allow_reporting &&
+                                     !application.agreements.community_awareness_choices.social_post &&
+                                     !application.agreements.community_awareness_choices.decline_participation && <li>None selected</li>}
+                                  </ul>
+                                </li>
+                              )}
+                            </ul>
                           </div>
                         )}
                       </div>
