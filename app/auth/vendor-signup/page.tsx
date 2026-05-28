@@ -125,6 +125,25 @@ export default function VendorSignupPage() {
         throw signupError
       }
 
+      // Send email notification to vendor@globalbrightfutures.org
+      try {
+        await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "vendor_signup",
+            email: formData.email,
+            vendorName: formData.vendorName,
+            vendorType: formData.vendorType,
+            country: formData.country,
+            contactName: formData.contactName,
+            contactPhone: formData.contactPhone || null,
+          }),
+        })
+      } catch (emailError) {
+        console.error("Failed to send vendor registration notification email:", emailError)
+      }
+
       toast.success("Registration submitted! Your vendor account is pending admin approval.")
       router.push("/auth/login?pending=vendor")
     } catch (error: any) {

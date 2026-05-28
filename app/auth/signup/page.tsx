@@ -149,6 +149,29 @@ export default function SignupPage() {
         throw signupError
       }
 
+      // Send email notification to partnership@globalbrightfutures.org
+      try {
+        await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "school_signup",
+            email: formData.email,
+            schoolName: finalSchoolName,
+            contactName: formData.contactName,
+            contactPhone: formData.contactPhone || null,
+            schoolAddress: fullAddress || null,
+            schoolDistrict: isIndividual ? null : (formData.schoolDistrict || null),
+            schoolType: finalSchoolType || null,
+            website: formData.website || null,
+            additionalInfo: formData.additionalInfo || null,
+            registrationType: formData.registrationType,
+          }),
+        })
+      } catch (emailError) {
+        console.error("Failed to send school registration notification email:", emailError)
+      }
+
       toast.success("Registration submitted! Your account is pending admin approval.")
       router.push("/auth/login?pending=true")
     } catch (error: any) {

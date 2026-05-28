@@ -142,10 +142,10 @@ export default function Sidebar() {
   const getDashboardTitle = () => {
     if (userRole === "admin") return "Admin Dashboard";
     if (userRole === "vendor") return "Vendor Portal";
-    if (userRole === "school") return "School Portal";
+    if (userRole === "school") return "GBFF Portal";
 
     if (pathname?.startsWith("/school-dashboard") || pathname?.startsWith("/apply") || pathname?.startsWith("/my-applications")) {
-      return "School Portal";
+      return "GBFF Portal";
     }
     if (pathname?.startsWith("/vendor")) {
       return "Vendor Portal";

@@ -8,6 +8,225 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { to, studentName, status, schoolName, programType, type, voucherCode, amount } = body
 
+    // Handle school signup notification email
+    if (type === "school_signup") {
+      const {
+        email,
+        schoolName,
+        contactName,
+        contactPhone,
+        schoolAddress,
+        schoolDistrict,
+        schoolType,
+        website,
+        additionalInfo,
+        registrationType,
+      } = body
+
+      if (!email || !schoolName || !contactName) {
+        return NextResponse.json({ error: "Missing required fields for school signup email" }, { status: 400 })
+      }
+
+      const subject = `🏫 New Registration Pending Approval - ${schoolName}`
+      const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f3f4f6;">
+          <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <span style="font-size: 48px;">🏫</span>
+            <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px; font-weight: 700;">New School Registration</h1>
+            <p style="color: #e0e7ff; margin: 5px 0 0 0; font-size: 14px;">Pending Admin Review & Approval</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <p style="font-size: 16px; margin-bottom: 20px; color: #374151;">
+              A new partner registration has been submitted and is currently pending review in the admin dashboard.
+            </p>
+            
+            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #f3f4f6; margin-bottom: 25px;">
+              <h3 style="margin-top: 0; margin-bottom: 15px; color: #4f46e5; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; font-size: 16px;">Registration Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; width: 40%; font-weight: 600;">Type:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${registrationType || 'School'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Email:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;"><a href="mailto:${email}" style="color: #4f46e5; text-decoration: none;">${email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">School / Org Name:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${schoolName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Contact Name:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${contactName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Contact Phone:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${contactPhone || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Address:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${schoolAddress || 'N/A'}</td>
+                </tr>
+                ${schoolDistrict ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">School District:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${schoolDistrict}</td>
+                </tr>` : ''}
+                ${schoolType ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">School Type:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${schoolType}</td>
+                </tr>` : ''}
+                ${website ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Website:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;"><a href="${website}" target="_blank" style="color: #4f46e5; text-decoration: none;">${website}</a></td>
+                </tr>` : ''}
+              </table>
+            </div>
+
+            ${additionalInfo ? `
+            <div style="background: #fffbeb; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 25px;">
+              <h4 style="margin: 0 0 5px 0; color: #b45309; font-size: 14px;">Additional Information:</h4>
+              <p style="margin: 0; font-size: 13px; color: #78350f;">${additionalInfo}</p>
+            </div>` : ''}
+            
+            <div style="text-align: center; margin: 30px 0 10px 0;">
+              <a href="https://app.globalbrightfutures.org/admin/school-signups" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);">
+                Review in Dashboard
+              </a>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                This is an automated notification from the Global Bright Futures Portal.
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+      `
+
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Global Bright Futures <onboarding@resend.dev>",
+        to: ["partnership@globalbrightfutures.org"],
+        subject,
+        html: htmlContent,
+      })
+
+      if (error) {
+        console.error("Resend error sending school signup notification:", error)
+        return NextResponse.json({ error: "Failed to send school signup notification" }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, data })
+    }
+
+    // Handle vendor signup notification email
+    if (type === "vendor_signup") {
+      const {
+        email,
+        vendorName,
+        vendorType,
+        country,
+        contactName,
+        contactPhone,
+      } = body
+
+      if (!email || !vendorName || !contactName) {
+        return NextResponse.json({ error: "Missing required fields for vendor signup email" }, { status: 400 })
+      }
+
+      const subject = `🏢 New Vendor Registration Pending Approval - ${vendorName}`
+      const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f3f4f6;">
+          <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <span style="font-size: 48px;">🏢</span>
+            <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px; font-weight: 700;">New Vendor Registration</h1>
+            <p style="color: #e0f2fe; margin: 5px 0 0 0; font-size: 14px;">Pending Admin Review & Approval</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <p style="font-size: 16px; margin-bottom: 20px; color: #374151;">
+              A new vendor partner registration has been submitted and is currently pending review in the admin dashboard.
+            </p>
+            
+            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #f3f4f6; margin-bottom: 25px;">
+              <h3 style="margin-top: 0; margin-bottom: 15px; color: #0284c7; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; font-size: 16px;">Vendor Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; width: 40%; font-weight: 600;">Vendor Name:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${vendorName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Email:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;"><a href="mailto:${email}" style="color: #0284c7; text-decoration: none;">${email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Vendor Type:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${vendorType}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Country:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${country}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Contact Name:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${contactName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Contact Phone:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${contactPhone || 'N/A'}</td>
+                </tr>
+              </table>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0 10px 0;">
+              <a href="https://app.globalbrightfutures.org/admin/vendor-signups" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.3);">
+                Review in Dashboard
+              </a>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                This is an automated notification from the Global Bright Futures Portal.
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+      `
+
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Global Bright Futures <onboarding@resend.dev>",
+        to: ["vendor@globalbrightfutures.org"],
+        subject,
+        html: htmlContent,
+      })
+
+      if (error) {
+        console.error("Resend error sending vendor signup notification:", error)
+        return NextResponse.json({ error: "Failed to send vendor signup notification" }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, data })
+    }
+
     // Handle voucher approval email
     if (type === "voucher_approved") {
       if (!to || !voucherCode || !amount) {
