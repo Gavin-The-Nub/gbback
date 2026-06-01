@@ -568,38 +568,23 @@ export default function ApplyPage() {
                     </Select>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="studentCount">Number of Students</Label>
-                      <Input
-                        id="studentCount"
-                        name="studentCount"
-                        type="number"
-                        min="1"
-                        value={formData.studentCount}
-                        onChange={handleChange}
-                        placeholder="1"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="voucherAmount">Requested Voucher Amount ($) <span className="text-red-500">*</span></Label>
-                      <Select
-                        value={formData.voucherAmount}
-                        onValueChange={(value) => handleSelectChange("voucherAmount", value)}
-                        required
-                      >
-                        <SelectTrigger id="voucherAmount">
-                          <SelectValue placeholder="Select funding amount" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="300">$300 (Amazon Classroom Supplies Support)</SelectItem>
-                          <SelectItem value="1000">$1000 Individual Academic/Development Support</SelectItem>
-                          <SelectItem value="5000">$5000 School Academic Support Grant</SelectItem>
-                          <SelectItem value="10000">$10000 School Education Expansion Grant</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="voucherAmount">Requested Voucher Amount ($) <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={formData.voucherAmount}
+                      onValueChange={(value) => handleSelectChange("voucherAmount", value)}
+                      required
+                    >
+                      <SelectTrigger id="voucherAmount">
+                        <SelectValue placeholder="Select funding amount" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="300">$300 (Amazon Classroom Supplies Support)</SelectItem>
+                        <SelectItem value="1000">$1000 Individual Academic/Development Support</SelectItem>
+                        <SelectItem value="5000">$5000 School Academic Support Grant</SelectItem>
+                        <SelectItem value="10000">$10000 School Education Expansion Grant</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {formData.voucherAmount === "300" && (

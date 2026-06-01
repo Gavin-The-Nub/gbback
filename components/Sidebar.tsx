@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, X, Ticket, School, FileText, Building2, CreditCard, User, BarChart2 } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, X, Ticket, School, FileText, Building2, CreditCard, User, BarChart2, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -85,6 +85,11 @@ export default function Sidebar() {
       path: "/admin/analytics",
       label: "Analytics",
       icon: BarChart2,
+    },
+    {
+      path: "/admin/impact-cms",
+      label: "Impact CMS",
+      icon: ImageIcon,
     },
   ];
 
