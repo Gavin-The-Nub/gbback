@@ -22,6 +22,7 @@ export default function ApplyPage() {
   const [isSuccess, setIsSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [schoolProfile, setSchoolProfile] = useState<any>(null)
+  const [denominations, setDenominations] = useState<any[]>([])
   const [formData, setFormData] = useState({
     beneficiaryType: "STUDENT",
     studentName: "",
@@ -66,7 +67,35 @@ export default function ApplyPage() {
 
   useEffect(() => {
     checkAuthAndLoadProfile()
+    loadDenominations()
   }, [])
+
+  const loadDenominations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("voucher_denominations")
+        .select("amount, label, description")
+        .eq("show_in_dropdown", true)
+        .order("sort_order", { ascending: true })
+
+      if (error) throw error
+      if (data && data.length > 0) {
+        setDenominations(data)
+      } else {
+        setDenominations(defaultDropdownOptions)
+      }
+    } catch (err) {
+      console.error("Error loading denominations in ApplyPage:", err)
+      setDenominations(defaultDropdownOptions)
+    }
+  }
+
+  const defaultDropdownOptions = [
+    { amount: 300, label: "$300 (Amazon Classroom Supplies Support)", description: "This voucher provides controlled purchasing access through the GBFF Amazon Business nonprofit account for approved educational supplies and classroom resources via vetted GBFF partners. The total value is capped at $300, including taxes, shipping, and fees. Funding is based on educational need, review, and availability, and may be partially or fully awarded. Submission does not guarantee approval. One application is allowed per program cycle/year unless otherwise invited. Approved vouchers are non-transferable, have no cash value, and must be used only for approved educational purposes within the $300 limit." },
+    { amount: 1000, label: "$1000 Individual Academic/Development Support", description: null },
+    { amount: 5000, label: "$5000 School Academic Support Grant", description: null },
+    { amount: 10000, label: "$10000 School Education Expansion Grant", description: null }
+  ]
 
   const checkAuthAndLoadProfile = async () => {
     try {
@@ -579,25 +608,36 @@ export default function ApplyPage() {
                         <SelectValue placeholder="Select funding amount" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="300">$300 (Amazon Classroom Supplies Support)</SelectItem>
-                        <SelectItem value="1000">$1000 Individual Academic/Development Support</SelectItem>
-                        <SelectItem value="5000">$5000 School Academic Support Grant</SelectItem>
-                        <SelectItem value="10000">$10000 School Education Expansion Grant</SelectItem>
+                        {denominations.map((den, idx) => (
+                          <SelectItem key={idx} value={den.amount.toString()}>
+                            {den.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {formData.voucherAmount === "300" && (
-                    <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-lg text-sm text-blue-900 leading-relaxed">
-                      <p className="font-semibold mb-1 flex items-center gap-1.5 text-blue-950">
-                        <Info className="h-4 w-4 text-blue-600" />
-                        Amazon Classroom Supplies Support Policy:
-                      </p>
-                      <p className="text-blue-900">
-                        This voucher provides controlled purchasing access through the GBFF Amazon Business nonprofit account for approved educational supplies and classroom resources via vetted GBFF partners. The total value is capped at $300, including taxes, shipping, and fees. Funding is based on educational need, review, and availability, and may be partially or fully awarded. Submission does not guarantee approval. One application is allowed per program cycle/year unless otherwise invited. Approved vouchers are non-transferable, have no cash value, and must be used only for approved educational purposes within the $300 limit.
-                      </p>
-                    </div>
-                  )}
+                  {(() => {
+                    const selectedDen = denominations.find(
+                      (d) => d.amount.toString() === formData.voucherAmount
+                    )
+                    if (selectedDen && selectedDen.description) {
+                      return (
+                        <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-lg text-sm text-blue-900 leading-relaxed">
+                          <p className="font-semibold mb-1 flex items-center gap-1.5 text-blue-950">
+                            <Info className="h-4 w-4 text-blue-600" />
+                            {selectedDen.amount === 300 
+                              ? "Amazon Classroom Supplies Support Policy:" 
+                              : "Voucher Funding Policy Guidelines:"}
+                          </p>
+                          <p className="text-blue-900">
+                            {selectedDen.description}
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
 
                   <div className="space-y-2">
                     <Label htmlFor="financialNeedDescription">
