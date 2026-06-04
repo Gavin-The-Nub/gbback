@@ -96,6 +96,11 @@ export default function Sidebar() {
       label: "Denomination CMS",
       icon: Coins,
     },
+    {
+      path: "/admin/funding-cms",
+      label: "Funding CMS",
+      icon: CreditCard,
+    },
   ];
 
   const schoolNavigationItems = [
