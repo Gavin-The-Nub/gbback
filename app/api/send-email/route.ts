@@ -8,6 +8,226 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { to, studentName, status, schoolName, programType, type, voucherCode, amount } = body
 
+    // Handle new support request submission notification
+    if (type === "new_support_request") {
+      const {
+        beneficiaryType,
+        studentName,
+        email,
+        phone,
+        schoolName,
+        district,
+        gradeLevel,
+        programType,
+        financialNeedDescription,
+        voucherAmount,
+        country,
+      } = body
+
+      const subject = `📬 New Support Request Submitted - ${schoolName}`
+      const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f3f4f6;">
+          <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <span style="font-size: 48px;">📬</span>
+            <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px; font-weight: 700;">New Support Request</h1>
+            <p style="color: #dbeafe; margin: 5px 0 0 0; font-size: 14px;">Submitted for Review</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <p style="font-size: 16px; margin-bottom: 20px; color: #374151;">
+              A new support request application has been submitted and is currently pending review in the admin dashboard.
+            </p>
+            
+            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #f3f4f6; margin-bottom: 25px;">
+              <h3 style="margin-top: 0; margin-bottom: 15px; color: #1d4ed8; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; font-size: 16px;">Request Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; width: 40%; font-weight: 600;">Apply For:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${beneficiaryType}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Name:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${studentName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">School / Org Name:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${schoolName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">School Email:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;"><a href="mailto:${email}" style="color: #1d4ed8; text-decoration: none;">${email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Phone:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${phone || 'N/A'}</td>
+                </tr>
+                ${gradeLevel ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Grade Level:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${gradeLevel}</td>
+                </tr>` : ''}
+                ${district ? `
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">School District:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${district}</td>
+                </tr>` : ''}
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Program Type:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${programType}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Requested Amount:</td>
+                  <td style="padding: 6px 0; color: #1d4ed8; font-weight: 700;">$${voucherAmount || 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Country:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${country}</td>
+                </tr>
+              </table>
+            </div>
+
+            ${financialNeedDescription ? `
+            <div style="background: #eff6ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-bottom: 25px;">
+              <h4 style="margin: 0 0 10px 0; color: #1e3a8a; font-size: 15px; font-weight: 600;">Educational Need & Benefit:</h4>
+              <p style="margin: 0; font-size: 13px; color: #1e40af; line-height: 1.6; white-space: pre-wrap;">${financialNeedDescription}</p>
+            </div>` : ''}
+            
+            <div style="text-align: center; margin: 30px 0 10px 0;">
+              <a href="https://app.globalbrightfutures.org/admin/voucher-requests" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 6px -1px rgba(29, 78, 216, 0.3);">
+                Review in Dashboard
+              </a>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                This is an automated notification from the Global Bright Futures Portal.
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+      `
+
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Global Bright Futures <onboarding@resend.dev>",
+        to: ["vouchers@globalbrightfutures.org"],
+        subject,
+        html: htmlContent,
+      })
+
+      if (error) {
+        console.error("Resend error sending support request notification:", error)
+        return NextResponse.json({ error: "Failed to send support request notification" }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, data })
+    }
+
+    // Handle new vendor voucher submission notification
+    if (type === "new_vendor_voucher_submission") {
+      const {
+        voucherCode,
+        amount,
+        vendorName,
+        invoiceUrl,
+      } = body
+
+      if (!voucherCode || !vendorName) {
+        return NextResponse.json({ error: "Missing required fields for vendor voucher submission notification" }, { status: 400 })
+      }
+
+      const invoiceFullUrl = invoiceUrl 
+        ? `https://ommmrstanzxkgnlzqwwx.supabase.co/storage/v1/object/public/vendor-invoices/${invoiceUrl}` 
+        : null
+
+      const subject = `🎫 New Vendor Voucher Redemption - ${vendorName}`
+      const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f3f4f6;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #047857 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <span style="font-size: 48px;">🎫</span>
+            <h1 style="color: white; margin: 10px 0 0 0; font-size: 24px; font-weight: 700;">New Voucher Redemption</h1>
+            <p style="color: #d1fae5; margin: 5px 0 0 0; font-size: 14px;">Submitted by Vendor for Approval</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+            <p style="font-size: 16px; margin-bottom: 20px; color: #374151;">
+              A vendor has submitted a voucher redemption request with an attached invoice.
+            </p>
+            
+            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #f3f4f6; margin-bottom: 25px;">
+              <h3 style="margin-top: 0; margin-bottom: 15px; color: #047857; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; font-size: 16px;">Redemption Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; width: 40%; font-weight: 600;">Vendor Name:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 500;">${vendorName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Voucher Code:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 700; font-family: monospace; font-size: 16px; color: #047857;">${voucherCode}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; font-weight: 600;">Amount:</td>
+                  <td style="padding: 6px 0; color: #111827; font-weight: 700;">$${amount || 'N/A'}</td>
+                </tr>
+              </table>
+            </div>
+
+            ${invoiceFullUrl ? `
+            <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; border: 1px solid #a7f3d0; text-align: center; margin-bottom: 25px;">
+              <p style="margin: 0 0 10px 0; font-size: 14px; color: #065f46; font-weight: 600;">Attached Invoice File:</p>
+              <a href="${invoiceFullUrl}" target="_blank" style="background-color: #10b981; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; display: inline-block;">
+                📄 View/Download Invoice
+              </a>
+            </div>` : `
+            <div style="background: #fff5f5; padding: 15px; border-radius: 8px; border: 1px solid #fed7d7; text-align: center; margin-bottom: 25px;">
+              <p style="margin: 0; font-size: 14px; color: #c53030; font-weight: 600;">⚠️ No invoice file attached.</p>
+            </div>`}
+            
+            <div style="text-align: center; margin: 30px 0 10px 0;">
+              <a href="https://app.globalbrightfutures.org/admin/vendor-vouchers" style="background: linear-gradient(135deg, #10b981 0%, #047857 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);">
+                Review in Dashboard
+              </a>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                This is an automated notification from the Global Bright Futures Portal.
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+      `
+
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Global Bright Futures <onboarding@resend.dev>",
+        to: ["vouchers@globalbrightfutures.org"],
+        subject,
+        html: htmlContent,
+      })
+
+      if (error) {
+        console.error("Resend error sending vendor voucher notification:", error)
+        return NextResponse.json({ error: "Failed to send vendor voucher notification" }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, data })
+    }
+
     // Handle school signup notification email
     if (type === "school_signup") {
       const {

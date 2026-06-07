@@ -1,47 +1,28 @@
 "use client"
 
 import { useEffect, useState, Suspense } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
-import { Ticket, CheckCircle, XCircle, Loader2, Package, AlertCircle, Clock, Info } from "lucide-react"
+import { Loader2, CreditCard, Save, AlertCircle, Clock, XCircle, Info } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 
-type VendorVoucherSubmission = {
-  id: string
-  vendor_id: string
-  voucher_code: string
-  voucher_application_id: string | null
-  status: "pending" | "approved" | "rejected"
-  verification_status: "valid" | "invalid" | "not_found"
-  submitted_at: string
-  reviewed_at: string | null
-  review_notes: string | null
-}
-
-function VendorDashboardContent() {
+function VendorBankInfoContent() {
   const router = useRouter()
-  const [voucherCode, setVoucherCode] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [submissions, setSubmissions] = useState<VendorVoucherSubmission[]>([])
   const [vendorProfile, setVendorProfile] = useState<any>(null)
-  const searchParams = useSearchParams()
-  
-  // Verification states
-  const [verifiedVoucher, setVerifiedVoucher] = useState<{
-    code: string;
-    amount: number | null;
-    applicationId: string | null;
-  } | null>(null)
-  const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
-
-
+  const [isSaving, setIsSaving] = useState(false)
+  const [bankForm, setBankForm] = useState({
+    bank_name: "",
+    account_number: "",
+    bank_code: "",
+    account_name: "",
+  })
 
   useEffect(() => {
     checkAuthAndLoad()
@@ -51,7 +32,7 @@ function VendorDashboardContent() {
     try {
       setIsLoading(true)
 
-      // Add retry logic for session check (handles race conditions after login)
+      // Add retry logic for session check
       let session = null
       let user = null
       let retries = 0
@@ -71,7 +52,7 @@ function VendorDashboardContent() {
       }
 
       if (!session) {
-        console.error("No session in vendor dashboard after retries")
+        console.error("No session in vendor bank info page after retries")
         router.replace("/auth/login")
         return
       }
@@ -80,7 +61,7 @@ function VendorDashboardContent() {
       const { data: { user: fetchedUser }, error: userError } = await supabase.auth.getUser()
 
       if (userError) {
-        console.error("Error getting user in vendor dashboard:", userError)
+        console.error("Error getting user in vendor bank info:", userError)
         router.replace("/auth/login")
         return
       }
@@ -93,8 +74,6 @@ function VendorDashboardContent() {
 
       user = fetchedUser
 
-      console.log("User authenticated in vendor dashboard:", user.id)
-
       const { data: profile, error: profileError } = await supabase
         .from("user_profiles")
         .select("role")
@@ -103,10 +82,8 @@ function VendorDashboardContent() {
 
       if (profileError) {
         console.error("Error loading user profile:", profileError)
-        // If it's an RLS error, don't redirect - might be temporary
         if (profileError.code === "42501" || profileError.message?.includes("permission denied")) {
           console.warn("RLS error loading profile, retrying...")
-          // Wait and retry once
           await new Promise(resolve => setTimeout(resolve, 500))
           const { data: retryProfile } = await supabase
             .from("user_profiles")
@@ -127,15 +104,11 @@ function VendorDashboardContent() {
 
       if (!profile || profile?.role !== "vendor") {
         console.error("Wrong role for vendor dashboard:", profile?.role, "- redirecting")
-        // If user is a school, redirect to school dashboard instead
         if (profile?.role === "school") {
-          console.log("User is school, redirecting to /school-dashboard")
           router.replace("/school-dashboard")
           return
         }
-        // If user is admin, redirect to admin dashboard
         if (profile?.role === "admin") {
-          console.log("User is admin, redirecting to /")
           router.replace("/")
           return
         }
@@ -151,24 +124,38 @@ function VendorDashboardContent() {
         .eq("id", user.id)
         .maybeSingle()
 
-      // If profile doesn't exist, user is pending approval (this is normal)
-      // Only treat it as an error if there's an actual database error (not "not found")
       if (vendorError) {
-        // PGRST116 is "no rows returned" - this is expected for pending vendors
         if (vendorError.code !== "PGRST116") {
           console.error("Error loading vendor profile:", vendorError)
-          // Continue anyway - might be RLS issue, but user should still see pending status
         }
       }
 
       // If profile doesn't exist, user is pending approval
       if (!vendorData) {
         // Check signup status
-        const { data: signupData } = await supabase
+        let { data: signupData } = await supabase
           .from("vendor_signups")
-          .select("id, user_id, vendor_name, status, review_notes")
+          .select("id, user_id, vendor_name, status, review_notes, email")
           .eq("user_id", user.id)
           .maybeSingle()
+
+        if (!signupData && user.email) {
+          const { data: emailData } = await supabase
+            .from("vendor_signups")
+            .select("id, user_id, vendor_name, status, review_notes, email")
+            .eq("email", user.email)
+            .maybeSingle()
+          
+          if (emailData) {
+            signupData = emailData
+            if (!emailData.user_id) {
+              await supabase
+                .from("vendor_signups")
+                .update({ user_id: user.id })
+                .eq("id", emailData.id)
+            }
+          }
+        }
 
         if (signupData) {
           setVendorProfile({
@@ -198,226 +185,49 @@ function VendorDashboardContent() {
       }
 
       setVendorProfile(vendorData)
-
-      await loadSubmissions(user.id)
+      setBankForm({
+        bank_name: vendorData.bank_name || "",
+        account_number: vendorData.account_number || "",
+        bank_code: vendorData.bank_code || "",
+        account_name: vendorData.account_name || "",
+      })
     } catch (error: any) {
       console.error("Error checking auth:", error)
-      toast.error("Failed to load dashboard")
+      toast.error("Failed to load page")
       router.replace("/auth/login")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const loadSubmissions = async (vendorId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("vendor_voucher_submissions")
-        .select("*")
-        .eq("vendor_id", vendorId)
-        .order("submitted_at", { ascending: false })
-
-      if (error) throw error
-      setSubmissions(data || [])
-    } catch (error: any) {
-      console.error("Error loading submissions:", error)
-      toast.error("Failed to load voucher submissions")
-    }
-  }
-
-  const handleVerifyVoucher = async (e: React.FormEvent) => {
+  const handleUpdateBankInfo = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!voucherCode.trim()) {
-      toast.error("Please enter a voucher code")
-      return
-    }
-
-    setIsSubmitting(true)
-    try {
-      // Normalize voucher code (uppercase, trim whitespace)
-      const normalizedCode = voucherCode.trim().toUpperCase()
-      console.log("Verifying voucher code:", normalizedCode)
-
-      // Use API endpoint to verify voucher (bypasses RLS restrictions)
-      let verificationStatus: "valid" | "invalid" | "not_found" = "not_found"
-      let voucherApplicationId: string | null = null
-      let result: any = null
-
-      try {
-        const response = await fetch("/api/verify-voucher", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ voucherCode: normalizedCode }),
-        })
-
-        console.log("API response status:", response.status, response.statusText)
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-          console.error("API error response:", errorData)
-          throw new Error(errorData.error || `API error: ${response.status}`)
-        }
-
-        result = await response.json()
-        console.log("Voucher verification API response:", result)
-        console.log("API diagnostics:", result.diagnostics)
-
-        if (result.valid === true) {
-          verificationStatus = "valid"
-          voucherApplicationId = result.applicationId
-          console.log("Voucher verified successfully:", result)
-        } else if (result.status === "already_submitted") {
-          verificationStatus = "invalid" // Treat as invalid for a NEW submission
-          console.log("Voucher already submitted:", result.reason)
-          toast.error(result.reason || "This voucher has already been submitted.")
-        } else {
-          verificationStatus = result.status === "pending" ? "invalid" : "not_found"
-          console.log("Voucher verification failed:", result.reason, "Status:", result.status)
-
-          // Show diagnostic info if available
-          if (result.diagnostics) {
-            console.error("Diagnostics:", {
-              usingServiceRole: result.diagnostics.usingServiceRole,
-              sampleCodes: result.diagnostics.sampleVoucherCodes,
-              partialMatches: result.diagnostics.partialMatchVouchers || result.diagnostics.partialMatchApps
-            })
-
-            if (!result.diagnostics.usingServiceRole) {
-              toast.error("Service role key not configured. Voucher verification may be blocked by RLS.")
-            } else if (result.diagnostics.sampleVoucherCodes && result.diagnostics.sampleVoucherCodes.length > 0) {
-              console.error("Sample codes in DB:", result.diagnostics.sampleVoucherCodes)
-              toast.error(`${result.reason}. Check console for diagnostic info.`)
-            } else {
-              toast.error(result.reason || "Voucher code verification failed")
-            }
-          } else {
-            toast.error(result.reason || "Voucher code verification failed")
-          }
-        }
-      } catch (apiError: any) {
-        console.error("Error calling verify-voucher API:", apiError)
-        console.error("Error details:", {
-          message: apiError.message,
-          stack: apiError.stack
-        })
-        toast.error(apiError.message || "Error verifying voucher code. Please try again.")
-        verificationStatus = "not_found"
-      }
-
-      console.log("Final verification result:", { verificationStatus, voucherApplicationId })
-
-      if (verificationStatus === "valid") {
-        setVerifiedVoucher({
-          code: normalizedCode,
-          amount: result.voucherAmount || null,
-          applicationId: voucherApplicationId,
-        })
-        toast.success("Voucher code verified! Please upload your invoice to submit.")
-      } else {
-        // The error toast is already shown inside the try block above with more specific info
-        // Only show a generic one if no specific error was shown
-        if (!result?.reason) {
-          toast.error("Voucher code verification failed.")
-        }
-        
-        // Also log the failed attempt to database
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          await supabase.from("vendor_voucher_submissions").insert([{
-            vendor_id: user.id,
-            voucher_code: normalizedCode,
-            status: "rejected",
-            verification_status: verificationStatus,
-          }])
-          await loadSubmissions(user.id)
-        }
-      }
-    } catch (error: any) {
-      console.error("Error verifying voucher:", error)
-      toast.error(error.message || "Failed to verify voucher code")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleFinalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!verifiedVoucher) return
-    if (!invoiceFile) {
-      toast.error("Please attach an invoice file")
-      return
-    }
-
-    setIsSubmitting(true)
+    setIsSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
-      // 1. Upload Invoice File
-      const fileExt = invoiceFile.name.split('.').pop()
-      const fileName = `${user.id}/${verifiedVoucher.code}-${Date.now()}.${fileExt}`
-      
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('vendor-invoices')
-        .upload(fileName, invoiceFile)
-        
-      if (uploadError) {
-        console.error("Upload error:", uploadError)
-        throw new Error("Failed to upload invoice file. Make sure vendor-invoices bucket exists.")
-      }
+      const { error } = await supabase
+        .from("vendor_profiles")
+        .update({
+          bank_name: bankForm.bank_name,
+          account_number: bankForm.account_number,
+          bank_code: bankForm.bank_code,
+          account_name: bankForm.account_name,
+        })
+        .eq("id", user.id)
 
-      const invoiceUrl = uploadData?.path
+      if (error) throw error
 
-      // 2. Create submission
-      const { error: insertError } = await supabase
-        .from("vendor_voucher_submissions")
-        .insert([
-          {
-            vendor_id: user.id,
-            voucher_code: verifiedVoucher.code,
-            voucher_application_id: verifiedVoucher.applicationId,
-            status: "pending",
-            verification_status: "valid",
-            invoice_url: invoiceUrl,
-          },
-        ])
-
-      if (insertError) throw insertError
-
-      // Send email notification to vouchers@globalbrightfutures.org
-      fetch("/api/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "new_vendor_voucher_submission",
-          voucherCode: verifiedVoucher.code,
-          amount: verifiedVoucher.amount,
-          vendorName: vendorProfile?.vendor_name || "Vendor",
-          invoiceUrl: invoiceUrl,
-        }),
-      }).catch((emailErr) => {
-        console.error("Error sending vendor voucher notification email:", emailErr)
-      })
-
-      toast.success("Voucher submitted successfully for admin approval.")
-
-      setVoucherCode("")
-      setVerifiedVoucher(null)
-      setInvoiceFile(null)
-      await loadSubmissions(user.id)
+      setVendorProfile({ ...vendorProfile, ...bankForm })
+      toast.success("Bank details updated successfully")
     } catch (error: any) {
-      console.error("Error submitting voucher:", error)
-      toast.error(error.message || "Failed to submit voucher code")
+      console.error("Error updating bank details:", error)
+      toast.error(error.message || "Failed to update bank details")
     } finally {
-      setIsSubmitting(false)
+      setIsSaving(false)
     }
   }
-
-
 
   if (isLoading) {
     return (
@@ -435,7 +245,6 @@ function VendorDashboardContent() {
     )
   }
 
-  // Show pending approval, waitlisted, or rejected message if not approved
   if (vendorProfile?.isPending) {
     const isCancelled = vendorProfile.status === "cancelled" || vendorProfile.status === "rejected"
     const isWaitlisted = vendorProfile.status === "waitlisted"
@@ -500,9 +309,10 @@ function VendorDashboardContent() {
                     )}
                     
                     {(isCancelled || isWaitlisted) && (
-                      <div className="mt-8">
+                      <div className="mt-8 flex flex-col gap-3 max-w-xs mx-auto">
                         <Button 
                           variant="outline" 
+                          className="w-full"
                           onClick={() => supabase.auth.signOut().then(() => router.push("/auth/login"))}
                         >
                           Sign Out
@@ -519,7 +329,6 @@ function VendorDashboardContent() {
     )
   }
 
-  // Show suspension message
   if (vendorProfile?.isSuspended) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -568,68 +377,110 @@ function VendorDashboardContent() {
     )
   }
 
-  const pendingSubmissions = submissions.filter(s => s.status === "pending")
-  const approvedSubmissions = submissions.filter(s => s.status === "approved")
-  const rejectedSubmissions = submissions.filter(s => s.status === "rejected")
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Sidebar />
       <div className="lg:pl-64">
         <Header userName={vendorProfile?.vendor_name || "Vendor"} role="vendor" />
         <main className="p-6">
-          <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Vendor Dashboard
-              </h1>
-              <p className="text-gray-600">
-                Submit and track voucher code redemptions
-              </p>
-            </div>
-
-
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Bank Details
+            </h1>
+            <p className="text-gray-600">
+              Manage your payment details for voucher payouts
+            </p>
           </div>
 
-          <>
+          <div className="max-w-4xl">
+            <form onSubmit={handleUpdateBankInfo} className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-indigo-600" />
+                    Payment & Bank Details
+                  </CardTitle>
+                  <CardDescription>Information used for voucher payouts</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_name">Bank Name</Label>
+                      <Input
+                        id="bank_name"
+                        value={bankForm.bank_name}
+                        onChange={(e) => setBankForm({ ...bankForm, bank_name: e.target.value })}
+                        placeholder="e.g., Standard Chartered"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="account_name">Account Name</Label>
+                      <Input
+                        id="account_name"
+                        value={bankForm.account_name}
+                        onChange={(e) => setBankForm({ ...bankForm, account_name: e.target.value })}
+                        placeholder="Name on account"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="account_number">Account Number</Label>
+                      <Input
+                        id="account_number"
+                        value={bankForm.account_number}
+                        onChange={(e) => setBankForm({ ...bankForm, account_number: e.target.value })}
+                        placeholder="Account number"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bank_code">Routing Number</Label>
+                      <Input
+                        id="bank_code"
+                        value={bankForm.bank_code}
+                        onChange={(e) => setBankForm({ ...bankForm, bank_code: e.target.value })}
+                        placeholder="Routing number"
+                        required
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Stats Overview */}
-            <div className="grid gap-4 md:grid-cols-3 mb-8">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-yellow-600">{pendingSubmissions.length}</div>
-                  <div className="text-sm text-gray-600">Pending Approval</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-green-600">{approvedSubmissions.length}</div>
-                  <div className="text-sm text-gray-600">Approved</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-2xl font-bold text-red-600">{rejectedSubmissions.length}</div>
-                  <div className="text-sm text-gray-600">Rejected</div>
-                </CardContent>
-              </Card>
-            </div>
-
-          </>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSaving} className="px-8">
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </main>
       </div>
     </div>
   )
 }
 
-export default function VendorDashboard() {
+export default function VendorBankInfo() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
       </div>
     }>
-      <VendorDashboardContent />
+      <VendorBankInfoContent />
     </Suspense>
   )
 }

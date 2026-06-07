@@ -13,35 +13,90 @@ type SchoolSignup = {
   id: string
   email: string
   school_name: string
+  contact_name: string | null
+  contact_phone: string | null
+  school_address: string | null
+  school_district: string | null
+  school_type: string | null
+  student_count: number | null
+  website: string | null
+  additional_info: string | null
   status: string
+  reviewed_by: string | null
+  reviewed_at: string | null
+  review_notes: string | null
   created_at: string
+  updated_at: string
+  user_id: string | null
+  country: string | null
 }
 
 type VendorSignup = {
   id: string
   email: string
   vendor_name: string
+  vendor_type: string | null
+  country: string | null
+  contact_name: string | null
+  contact_phone: string | null
   status: string
+  notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  review_notes: string | null
   created_at: string
+  updated_at: string
+  user_id: string | null
+  bank_name: string | null
+  account_name: string | null
+  account_number: string | null
+  bank_code: string | null
+  payment_notes: string | null
 }
 
 type ScholarshipApplication = {
   id: string
   student_name: string
   email: string
+  phone: string | null
   school_name: string
+  district: string | null
+  grade_level: string | null
   program_type: string
+  financial_need_description: string | null
+  academic_goals: string | null
+  student_count: number | null
   voucher_amount: number | null
+  country: string | null
   status: string
   applied_date: string
+  reviewed_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  voucher_code: string | null
+  submitted_by: string | null
+  school_user_id: string | null
+  beneficiary_type: string | null
+  agreement_accepted: boolean | null
 }
 
 type VendorVoucherSubmission = {
   id: string
   voucher_code: string
   status: string
+  verification_status: string | null
   submitted_at: string
+  reviewed_at: string | null
+  reviewed_by: string | null
+  review_notes: string | null
+  invoice_url: string | null
+  vendor_id?: string | null
+  vendor_name?: string
   email?: string
+  student_name?: string | null
+  school_name?: string | null
+  voucher_amount?: number | null
 }
 
 export default function AnalyticsPage() {
@@ -84,59 +139,131 @@ export default function AnalyticsPage() {
       // Fetch schools
       const { data: schoolData, error: schoolError } = await supabase
         .from("school_signups")
-        .select("id, email, school_name, status, created_at")
+        .select("*")
         .order("created_at", { ascending: false })
       if (schoolError) console.error("School fetch error:", schoolError)
-      setSchools(schoolData || [])
+      setSchools((schoolData as SchoolSignup[]) || [])
 
       // Fetch vendors
       const { data: vendorData, error: vendorError } = await supabase
         .from("vendor_signups")
-        .select("id, email, vendor_name, status, created_at")
+        .select("*")
         .order("created_at", { ascending: false })
       if (vendorError) console.error("Vendor fetch error:", vendorError)
-      setVendors(vendorData || [])
+
+      // Join bank info from vendor_profiles if available (vendors can update this from their dashboard)
+      const vendorsWithProfiles = vendorData ? await Promise.all(
+        vendorData.map(async (v: any) => {
+          if (v.user_id) {
+            const { data: profile } = await supabase
+              .from("vendor_profiles")
+              .select("bank_name, account_name, account_number, bank_code, payment_notes")
+              .eq("id", v.user_id)
+              .maybeSingle()
+
+            if (profile) {
+              return {
+                ...v,
+                bank_name: profile.bank_name || v.bank_name,
+                account_name: profile.account_name || v.account_name,
+                account_number: profile.account_number || v.account_number,
+                bank_code: profile.bank_code || v.bank_code,
+                payment_notes: profile.payment_notes || v.payment_notes,
+              }
+            }
+          }
+          return v
+        })
+      ) : []
+
+      setVendors((vendorsWithProfiles as VendorSignup[]) || [])
 
       // Fetch scholarships
       const { data: scholarshipData, error: scholarshipError } = await supabase
         .from("scholarship_applications")
-        .select("id, student_name, email, school_name, program_type, voucher_amount, status, applied_date")
+        .select("*")
         .order("applied_date", { ascending: false })
       if (scholarshipError) console.error("Scholarship fetch error:", scholarshipError)
-      setScholarships(scholarshipData || [])
+      setScholarships((scholarshipData as ScholarshipApplication[]) || [])
 
       // Fetch vouchers (vendor voucher submissions)
       const { data: voucherData, error: voucherError } = await supabase
         .from("vendor_voucher_submissions")
-        .select("id, voucher_code, status, submitted_at, vendor_id")
+        .select("*")
         .order("submitted_at", { ascending: false })
       if (voucherError) console.error("Voucher fetch error:", voucherError)
       
-      // Fetch vendor emails for vouchers
-      const vouchersWithEmails = voucherData ? await Promise.all(
+      // Fetch vendor profiles and application details for vouchers
+      const vouchersWithDetails = voucherData ? await Promise.all(
         voucherData.map(async (v: any) => {
-          let email = "N/A"
+          let vendorName = "Unknown Vendor"
+          let vendorEmail = "Unknown Email"
+          let studentName = "N/A"
+          let schoolName = "N/A"
+          let voucherAmount = 0
+
           if (v.vendor_id) {
+            // Fetch vendor profile
+            const { data: vendorProfile } = await supabase
+              .from("vendor_profiles")
+              .select("vendor_name")
+              .eq("id", v.vendor_id)
+              .maybeSingle()
+
+            if (vendorProfile) {
+              vendorName = vendorProfile.vendor_name
+            } else {
+              const { data: signupData } = await supabase
+                .from("vendor_signups")
+                .select("vendor_name")
+                .eq("user_id", v.vendor_id)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle()
+              
+              if (signupData) {
+                vendorName = signupData.vendor_name
+              }
+            }
+
+            // Fetch vendor email
             const { data: userData } = await supabase
               .from("user_profiles")
               .select("email")
               .eq("id", v.vendor_id)
               .maybeSingle()
+              
             if (userData?.email) {
-              email = userData.email
+              vendorEmail = userData.email
             }
           }
+
+          // Get application details if voucher_application_id exists
+          if (v.voucher_application_id) {
+            const { data: appData } = await supabase
+              .from("scholarship_applications")
+              .select("student_name, school_name, voucher_amount")
+              .eq("id", v.voucher_application_id)
+              .maybeSingle()
+            if (appData) {
+              studentName = appData.student_name || "N/A"
+              schoolName = appData.school_name || "N/A"
+              voucherAmount = appData.voucher_amount || 0
+            }
+          }
+
           return {
-            id: v.id,
-            voucher_code: v.voucher_code,
-            status: v.status,
-            submitted_at: v.submitted_at,
-            email: email
+            ...v,
+            vendor_name: vendorName,
+            email: vendorEmail,
+            student_name: studentName,
+            school_name: schoolName,
+            voucher_amount: voucherAmount
           }
         })
       ) : []
       
-      setVouchers(vouchersWithEmails)
+      setVouchers(vouchersWithDetails)
 
     } catch (error: any) {
       console.error("Error in loadData:", error)
@@ -222,26 +349,118 @@ export default function AnalyticsPage() {
     color: pieColors[status] || "#9CA3AF"
   })).filter(item => item.value > 0)
 
+  const escapeHtml = (text: string) => {
+    if (typeof text !== "string") return text
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;")
+  }
+
   const exportToExcel = () => {
     let headers: string[] = []
     let rows: string[][] = []
 
     switch (activeTab) {
       case "schools":
-        headers = ["School Name", "Email", "Status", "Date"]
-        rows = schools.map(item => [item.school_name, item.email, item.status, new Date(item.created_at).toLocaleDateString()])
+        headers = [
+          "School Name", "Contact Name", "Contact Phone", "Email", "Country", 
+          "School Address", "School District", "School Type", 
+          "Website", "Additional Info", "Status", "Signup Date", 
+          "Review Notes", "Reviewed Date"
+        ]
+        rows = schools.map(item => [
+          item.school_name || "N/A",
+          item.contact_name || "N/A",
+          item.contact_phone || "N/A",
+          item.email || "N/A",
+          item.country || "N/A",
+          item.school_address || "N/A",
+          item.school_district || "N/A",
+          item.school_type || "N/A",
+          item.website || "N/A",
+          item.additional_info || "N/A",
+          item.status || "N/A",
+          item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A",
+          item.review_notes || "N/A",
+          item.reviewed_at ? new Date(item.reviewed_at).toLocaleDateString() : "N/A"
+        ])
         break
       case "vendors":
-        headers = ["Vendor Name", "Email", "Status", "Date"]
-        rows = vendors.map(item => [item.vendor_name, item.email, item.status, new Date(item.created_at).toLocaleDateString()])
+        headers = [
+          "Vendor Name", "Vendor Type", "Contact Name", "Contact Phone", "Email", "Country", 
+          "Status", "Notes", "Bank Name", "Account Name", "Account Number", 
+          "Bank Code", "Signup Date", "Review Notes", "Reviewed Date"
+        ]
+        rows = vendors.map(item => [
+          item.vendor_name || "N/A",
+          item.vendor_type || "N/A",
+          item.contact_name || "N/A",
+          item.contact_phone || "N/A",
+          item.email || "N/A",
+          item.country || "N/A",
+          item.status || "N/A",
+          item.notes || "N/A",
+          item.bank_name || "N/A",
+          item.account_name || "N/A",
+          item.account_number || "N/A",
+          item.bank_code || "N/A",
+          item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A",
+          item.review_notes || "N/A",
+          item.reviewed_at ? new Date(item.reviewed_at).toLocaleDateString() : "N/A"
+        ])
         break
       case "scholarships":
-        headers = ["Student Name", "School Name", "Email", "Program Type", "Amount", "Status", "Date"]
-        rows = scholarships.map(item => [item.student_name, item.school_name, item.email, item.program_type, (item.voucher_amount || 0).toString(), item.status, new Date(item.applied_date).toLocaleDateString()])
+        headers = [
+          "Student Name", "Email", "Phone", "School Name", "District", "Grade Level", 
+          "Beneficiary Type", "Student Count", "Program Type", "Voucher Amount", 
+          "Voucher Code", "Status", "Country", "Financial Need", "Academic Goals", 
+          "Agreements Accepted", "Date Applied", "Review Notes (Notes)", "Date Reviewed"
+        ]
+        rows = scholarships.map(item => [
+          item.student_name || "N/A",
+          item.email || "N/A",
+          item.phone || "N/A",
+          item.school_name || "N/A",
+          item.district || "N/A",
+          item.grade_level || "N/A",
+          item.beneficiary_type || "N/A",
+          item.student_count !== null && item.student_count !== undefined ? item.student_count.toString() : "1",
+          item.program_type || "N/A",
+          item.voucher_amount !== null && item.voucher_amount !== undefined ? item.voucher_amount.toString() : "0",
+          item.voucher_code || "N/A",
+          item.status || "N/A",
+          item.country || "N/A",
+          item.financial_need_description || "N/A",
+          item.academic_goals || "N/A",
+          item.agreement_accepted ? "Yes" : "No",
+          item.applied_date ? new Date(item.applied_date).toLocaleDateString() : "N/A",
+          item.notes || "N/A",
+          item.reviewed_at ? new Date(item.reviewed_at).toLocaleDateString() : "N/A"
+        ])
         break
       case "vouchers":
-        headers = ["Voucher Code", "Vendor Email", "Status", "Date"]
-        rows = vouchers.map(item => [item.voucher_code, item.email || "N/A", item.status, new Date(item.submitted_at).toLocaleDateString()])
+        headers = [
+          "Voucher Code", "Vendor Name", "Vendor Email", "Student Name", "School Name", 
+          "Voucher Amount", "Submission Status", "Verification Status", "Submitted Date", 
+          "Invoice URL", "Review Notes", "Reviewed Date"
+        ]
+        rows = vouchers.map(item => [
+          item.voucher_code || "N/A",
+          item.vendor_name || "N/A",
+          item.email || "N/A",
+          item.student_name || "N/A",
+          item.school_name || "N/A",
+          item.voucher_amount !== null && item.voucher_amount !== undefined ? item.voucher_amount.toString() : "0",
+          item.status || "N/A",
+          item.verification_status || "N/A",
+          item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : "N/A",
+          item.invoice_url ? `https://ommmrstanzxkgnlzqwwx.supabase.co/storage/v1/object/public/vendor-invoices/${item.invoice_url}` : "N/A",
+          item.review_notes || "N/A",
+          item.reviewed_at ? new Date(item.reviewed_at).toLocaleDateString() : "N/A"
+        ])
         break
     }
 
@@ -257,10 +476,10 @@ export default function AnalyticsPage() {
       <body>
         <table>
           <thead>
-            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+            <tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
           </thead>
           <tbody>
-            ${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
+            ${rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}
           </tbody>
         </table>
       </body>
@@ -301,9 +520,9 @@ export default function AnalyticsPage() {
       const opt = {
         margin:       0.5,
         filename:     `${activeTab}_analytics_report.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 1.5, useCORS: false, logging: false },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        image:        { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: false, logging: false },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' as const }
       }
 
       // We target the hidden div which has FIXED width charts (no ResponsiveContainer)
@@ -449,33 +668,145 @@ export default function AnalyticsPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {activeTab === "vouchers" ? "Voucher Code" : "Name"}
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {activeTab === "scholarships" ? "Program Type" : "Email/Info"}
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  </tr>
+                  {activeTab === "schools" && (
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">School Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">District/Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                  )}
+                  {activeTab === "vendors" && (
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account Number</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank Code</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                  )}
+                  {activeTab === "scholarships" && (
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">School</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Voucher Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                  )}
+                  {activeTab === "vouchers" && (
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Voucher Code</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submission Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verification</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentData.map((item) => (
+                  {activeTab === "schools" && (schools as SchoolSignup[]).map((item) => (
                     <tr key={item.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {item[nameField] || "N/A"}
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.school_name || "N/A"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {activeTab === "scholarships" ? item.program_type : (item.email || "N/A")}
+                        <div>{item.contact_name || "N/A"}</div>
+                        <div className="text-xs text-gray-400">{item.contact_phone || ""}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.email || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{item.school_district || "N/A"}</div>
+                        <div className="text-xs text-gray-400">{item.school_type || ""}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(item.status)}`}>
-                          {item.status ? item.status.toUpperCase() : "N/A"}
+                          {(item.status || "N/A").toUpperCase()}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item[dateField] ? new Date(item[dateField]).toLocaleDateString() : "N/A"}
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A"}
+                      </td>
+                    </tr>
+                  ))}
+                  {activeTab === "vendors" && (vendors as VendorSignup[]).map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.vendor_name || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{item.contact_name || "N/A"}</div>
+                        <div className="text-xs text-gray-400">{item.contact_phone || ""}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.email || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.bank_name || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.account_name || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.account_number || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.bank_code || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(item.status)}`}>
+                          {(item.status || "N/A").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A"}
+                      </td>
+                    </tr>
+                  ))}
+                  {activeTab === "scholarships" && (scholarships as ScholarshipApplication[]).map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.student_name || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.email || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.school_name || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.program_type || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                        {item.voucher_amount !== null && item.voucher_amount !== undefined ? `$${item.voucher_amount.toLocaleString()}` : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">{item.voucher_code || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(item.status)}`}>
+                          {(item.status || "N/A").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.applied_date ? new Date(item.applied_date).toLocaleDateString() : "N/A"}
+                      </td>
+                    </tr>
+                  ))}
+                  {activeTab === "vouchers" && (vouchers as VendorVoucherSubmission[]).map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-medium text-gray-900">{item.voucher_code || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{item.vendor_name || "N/A"}</div>
+                        <div className="text-xs text-gray-400">{item.email || ""}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.student_name || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                        {item.voucher_amount !== null && item.voucher_amount !== undefined ? `$${item.voucher_amount.toLocaleString()}` : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(item.status)}`}>
+                          {(item.status || "N/A").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          item.verification_status === "valid" ? "bg-green-100 text-green-800" :
+                          item.verification_status === "invalid" ? "bg-red-100 text-red-800" :
+                          "bg-gray-100 text-gray-800"
+                        }`}>
+                          {(item.verification_status || "N/A").toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : "N/A"}
                       </td>
                     </tr>
                   ))}
@@ -488,7 +819,7 @@ export default function AnalyticsPage() {
           {/* This div is rendered off-screen but has FIXED width charts (no ResponsiveContainer) */}
           {/* This guarantees that html2canvas can read the dimensions correctly! */}
           <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-            <div id="pdf-content" style={{ width: '800px', padding: '20px', backgroundColor: '#F9FAFB' }}>
+            <div id="pdf-content" style={{ width: '960px', padding: '20px', backgroundColor: '#F9FAFB' }}>
               <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#EEF2FF', borderRadius: '8px' }}>
                 <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1E1B4B' }}>
                   {tabNames[activeTab]} Analytics Report
@@ -509,7 +840,7 @@ export default function AnalyticsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                 <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px' }}>Volume by Month</h3>
-                  <BarChart width={350} height={200} data={barData}>
+                  <BarChart width={430} height={200} data={barData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
@@ -519,7 +850,7 @@ export default function AnalyticsPage() {
                 </div>
                 <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
                   <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px' }}>Status Distribution</h3>
-                  <PieChart width={350} height={200}>
+                  <PieChart width={430} height={200}>
                     <Pie
                       data={pieData}
                       cx="50%"
@@ -542,30 +873,102 @@ export default function AnalyticsPage() {
               {/* Table */}
               <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '10px' }}>Detailed Records</h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: activeTab === 'vendors' ? '7.5px' : '9px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#F9FAFB' }}>
-                      <th style={{ border: '1px solid #E5E7EB', padding: '8px', textAlign: 'left' }}>
-                        {activeTab === "vouchers" ? "Voucher Code" : "Name"}
-                      </th>
-                      <th style={{ border: '1px solid #E5E7EB', padding: '8px', textAlign: 'left' }}>
-                        {activeTab === "scholarships" ? "Program Type" : "Email/Info"}
-                      </th>
-                      <th style={{ border: '1px solid #E5E7EB', padding: '8px', textAlign: 'left' }}>Status</th>
-                      <th style={{ border: '1px solid #E5E7EB', padding: '8px', textAlign: 'left' }}>Date</th>
+                      {activeTab === "schools" && (
+                        <>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>School Name</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Contact</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Email</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>District/Type</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Status</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Date</th>
+                        </>
+                      )}
+                      {activeTab === "vendors" && (
+                        <>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Vendor Name</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Contact</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Email</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Bank Name</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Account Name</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Account Number</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Bank Code</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Status</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Date</th>
+                        </>
+                      )}
+                      {activeTab === "scholarships" && (
+                        <>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Student Name</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Email</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>School</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Program Type</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Voucher Amount</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Code</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Status</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Date</th>
+                        </>
+                      )}
+                      {activeTab === "vouchers" && (
+                        <>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Voucher Code</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Vendor Name</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Student Name</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Amount</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Status</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Verification</th>
+                          <th style={{ border: '1px solid #E5E7EB', padding: '6px', textAlign: 'left' }}>Date</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {currentData.map((item) => (
+                    {activeTab === "schools" && (schools as SchoolSignup[]).map((item) => (
                       <tr key={item.id}>
-                        <td style={{ border: '1px solid #E5E7EB', padding: '8px' }}>{item[nameField] || "N/A"}</td>
-                        <td style={{ border: '1px solid #E5E7EB', padding: '8px' }}>
-                          {activeTab === "scholarships" ? item.program_type : (item.email || "N/A")}
-                        </td>
-                        <td style={{ border: '1px solid #E5E7EB', padding: '8px' }}>{item.status ? item.status.toUpperCase() : "N/A"}</td>
-                        <td style={{ border: '1px solid #E5E7EB', padding: '8px' }}>
-                          {item[dateField] ? new Date(item[dateField]).toLocaleDateString() : "N/A"}
-                        </td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.school_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.contact_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.email || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.school_district || "N/A"} ({item.school_type || "N/A"})</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{(item.status || "N/A").toUpperCase()}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A"}</td>
+                      </tr>
+                    ))}
+                    {activeTab === "vendors" && (vendors as VendorSignup[]).map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.vendor_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.contact_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.email || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.bank_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.account_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.account_number || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.bank_code || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{(item.status || "N/A").toUpperCase()}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.created_at ? new Date(item.created_at).toLocaleDateString() : "N/A"}</td>
+                      </tr>
+                    ))}
+                    {activeTab === "scholarships" && (scholarships as ScholarshipApplication[]).map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.student_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.email || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.school_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.program_type || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.voucher_amount !== null ? `$${item.voucher_amount.toLocaleString()}` : "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.voucher_code || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{(item.status || "N/A").toUpperCase()}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.applied_date ? new Date(item.applied_date).toLocaleDateString() : "N/A"}</td>
+                      </tr>
+                    ))}
+                    {activeTab === "vouchers" && (vouchers as VendorVoucherSubmission[]).map((item) => (
+                      <tr key={item.id}>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.voucher_code || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.vendor_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.student_name || "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.voucher_amount !== null && item.voucher_amount !== undefined ? `$${item.voucher_amount.toLocaleString()}` : "N/A"}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{(item.status || "N/A").toUpperCase()}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{(item.verification_status || "N/A").toUpperCase()}</td>
+                        <td style={{ border: '1px solid #E5E7EB', padding: '6px' }}>{item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : "N/A"}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -26,6 +26,7 @@ type SchoolSignup = {
   reviewed_at: string | null
   review_notes: string | null
   created_at: string
+  country?: string | null
 }
 
 export default function SchoolSignupsPage() {

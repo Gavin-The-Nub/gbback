@@ -310,10 +310,7 @@ export default function VendorSignupsPage() {
     );
   });
 
-  const approvedCount = statusCounts.approved + statusCounts.active
-  const rejectedCount = statusCounts.cancelled + statusCounts.rejected
-  const waitlistedCount = statusCounts.waitlisted
-  const underReviewCount = statusCounts.under_review
+
 
   const getStatusColor = (status: string) => {
     switch (status) {

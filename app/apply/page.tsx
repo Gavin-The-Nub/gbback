@@ -274,6 +274,30 @@ export default function ApplyPage() {
 
       if (error) throw error
 
+      // Send email notification to vouchers@globalbrightfutures.org
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "new_support_request",
+          beneficiaryType: formData.beneficiaryType,
+          studentName: formData.studentName,
+          email: schoolEmail,
+          phone: formData.phone || null,
+          schoolName: formData.schoolName,
+          district: formData.district || null,
+          gradeLevel: formData.beneficiaryType === "STUDENT" ? formData.gradeLevel : null,
+          programType: formData.programType,
+          financialNeedDescription: formData.financialNeedDescription,
+          voucherAmount: formData.voucherAmount ? parseFloat(formData.voucherAmount) : null,
+          country: formData.country,
+        }),
+      }).catch((emailErr) => {
+        console.error("Error sending support request notification email:", emailErr)
+      })
+
       toast.success("Application submitted successfully!")
       setIsSuccess(true)
 

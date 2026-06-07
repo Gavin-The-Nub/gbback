@@ -127,6 +127,11 @@ export default function Sidebar() {
       label: "Dashboard",
       icon: LayoutDashboard,
     },
+    {
+      path: "/vendor/bank-info",
+      label: "Bank Info",
+      icon: CreditCard,
+    },
   ];
 
   // Guess navigation items from pathname while role is loading to prevent flash

@@ -425,6 +425,23 @@ function VendorDashboardContent() {
 
       if (insertError) throw insertError
 
+      // Send email notification to vouchers@globalbrightfutures.org
+      fetch("/api/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "new_vendor_voucher_submission",
+          voucherCode: verifiedVoucher.code,
+          amount: verifiedVoucher.amount,
+          vendorName: vendorProfile?.vendor_name || "Vendor",
+          invoiceUrl: invoiceUrl,
+        }),
+      }).catch((emailErr) => {
+        console.error("Error sending vendor voucher notification email:", emailErr)
+      })
+
       toast.success("Voucher submitted successfully for admin approval.")
 
       setVoucherCode("")
@@ -610,12 +627,9 @@ function VendorDashboardContent() {
                 Submit and track voucher code redemptions
               </p>
             </div>
-
-
           </div>
 
           <>
-
             {/* Stats Overview */}
             <div className="grid gap-4 md:grid-cols-3 mb-8">
               <Card>
